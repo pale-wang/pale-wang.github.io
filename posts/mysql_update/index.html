@@ -4,12 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>MySQL5.1升级5.5 | WangSheng's Blog</title>
-<link href="../../assets/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-<link href="../../assets/css/html4css1.css" rel="stylesheet" type="text/css">
-<link href="../../assets/css/nikola_rst.css" rel="stylesheet" type="text/css">
-<link href="../../assets/css/code.css" rel="stylesheet" type="text/css">
-<link href="../../assets/css/colorbox.css" rel="stylesheet" type="text/css">
-<link href="../../assets/css/theme.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/theme.css" type="text/css" rel="stylesheet">
+<link href="../../assets/css/pure.css" type="text/css" rel="stylesheet">
+<link href="../../assets/css/style.css" type="text/css" rel="stylesheet">
 <meta name="theme-color" content="#5670d4">
 <meta name="generator" content="Nikola (getnikola.com)">
 <link rel="alternate" type="application/rss+xml" title="RSS" href="../../rss.xml">
@@ -31,77 +28,43 @@ Traceback (most recent call last):
 <meta property="article:tag" content="mysql">
 </head>
 <body>
-<a href="#content" class="sr-only sr-only-focusable">跳到主内容</a>
-
-<!-- Menubar -->
-
-<nav class="navbar navbar-inverse navbar-static-top"><div class="container">
-<!-- This keeps the margins nice -->
-        <div class="navbar-header">
-            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-navbar" aria-controls="bs-navbar" aria-expanded="false">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand" href="http://blog.wangsheng.life/">
-
-                <span id="blog-title">WangSheng's Blog</span>
-            </a>
+<div class="body_container">
+    <div id="header">
+        <div class="site-name">
+                <h1>WangSheng's Blog</h1>
         </div>
-<!-- /.navbar-header -->
-        <div class="collapse navbar-collapse" id="bs-navbar" role="navigation" aria-expanded="false">
-            <ul class="nav navbar-nav">
-<li>
-<a href="../../archive.html">文章存档</a>
-                </li>
-<li>
-<a href="../../categories/">标签</a>
-                </li>
-<li>
-<a href="../../rss.xml">RSS 源</a>
 
-                
-            </li>
-</ul>
-<ul class="nav navbar-nav navbar-right">
-<li>
-    <a href="index.rst" id="sourcelink">源代码</a>
-    </li>
+        <div id="nav-menu">
+            <div class="bitcron_nav_container">
+                <div class="bitcron_nav">
+                    <div class="site_nav_wrap">
+                        <ul class="site_nav sm sm-base">
+<li><a href="../../archive.html" class="nav__item">文章存档</a></li>
+            <li><a href="../../categories/" class="nav__item">标签</a></li>
+            <li><a href="../../rss.xml" class="nav__item">RSS 源</a></li>
 
-                
-            </ul>
-</div>
-<!-- /.navbar-collapse -->
+                            
+                        </ul>
+<div class="clear clear_nav_inline_end"></div>
+                    </div>
+                </div>
+                <div class="clear clear_nav_end"></div>
+            </div>
+        </div>
     </div>
-<!-- /.container -->
-</nav><!-- End of Menubar --><div class="container" id="content" role="main">
-    <div class="body-content">
-        <!--Body content-->
-        <div class="row">
-            
-            
-<article class="post-text h-entry hentry postpage" itemscope="itemscope" itemtype="http://schema.org/Article"><header><h1 class="p-name entry-title" itemprop="headline name"><a href="." class="u-url">MySQL5.1升级5.5</a></h1>
-
-        <div class="metadata">
-            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
-                    wangsheng
-            </span></p>
-            <p class="dateline"><a href="." rel="bookmark"><time class="published dt-published" datetime="2018-06-14T16:04:00+08:00" itemprop="datePublished" title="2018-06-14 16:04">2018-06-14 16:04</time></a></p>
-                <p class="commentline">
-        
-<span class="fb-comments-count" data-url="/posts/mysql_update/">
-
-
-            
-        <p class="sourceline"><a href="index.rst" class="sourcelink">源代码</a></p>
-
-        </span></p>
-</div>
-        
-
-    </header><div class="e-content entry-content" itemprop="articleBody text">
-    <div>
+    <div id="layout">
+        <div class="pure-g">
+            <div class=" pure-u-24-24 pure-u-sm-24-24 pure-u-md-18-24 pure_cell">
+                <div class="content_container">
+                    <!--Body content-->
+                    <div class="row">
+                        
+                        
+<div class="post post-page">
+    <h1 class="post-title">MySQL5.1升级5.5</h1>
+    <div class="post-meta">2018-06-14 16:04</div>
+    <div class="post-content">
+        <div>
 <div class="section" id="id1">
 <h2>背景</h2>
 <p>在往内网集群部署django应用时</p>
@@ -327,14 +290,17 @@ CHANGE MASTER TO
 </div>
 </div>
     </div>
-    <aside class="postpromonav"><nav><ul itemprop="keywords" class="tags">
+    <div class="postpromonav">
+        <nav><ul itemprop="keywords" class="tags">
 <li><a class="tag p-category" href="../../categories/mysql/" rel="tag">mysql</a></li>
         </ul>
 <ul class="pager hidden-print">
 <li class="previous">
                 <a href="../django_deploy/" rel="prev" title="Django应用部署">前一篇</a>
             </li>
-        </ul></nav></aside><section class="comments hidden-print"><h2>注释</h2>
+        </ul></nav>
+</div>
+    <section class="comments hidden-print"><h2>注释</h2>
         
         
 <div id="fb-root"></div>
@@ -360,7 +326,7 @@ CHANGE MASTER TO
 </script><div class="fb-comments" data-href="http://blog.wangsheng.life/posts/mysql_update/" data-width="470"></div>
 
 
-        </section></article><div id="fb-root"></div>
+    </section><div id="fb-root"></div>
 <script>
     // thank lxml for this
     $('.fb-comments-count').each(function(i, obj) {
@@ -390,19 +356,47 @@ CHANGE MASTER TO
    }(document, 'script', 'facebook-jssdk'));
 </script>
 </div>
-        <!--End of body content-->
 
-        <footer id="footer">
-            Contents © 2018         <a href="mailto:hanadumal@outlook.com">wangsheng</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
-            
-        </footer>
-</div>
-</div>
+                </div>
+                <!--End of body content-->
+                <div style="clear:both;height:0;"></div>
+            </div>
+        </div>
 
+        <!-- Sidebar -->
 
-            <script src="../../assets/js/jquery.min.js"></script><script src="../../assets/js/bootstrap.min.js"></script><script src="../../assets/js/moment-with-locales.min.js"></script><script src="../../assets/js/fancydates.js"></script><script src="../../assets/js/jquery.colorbox-min.js"></script><script src="../../assets/js/colorbox-i18n/jquery.colorbox-zh-CN.js"></script><script>$('a.image-reference:not(.islink) img:not(.islink)').parent().colorbox({rel:"gal",maxWidth:"100%",maxHeight:"100%",scalePhotos:true});</script><!-- fancy dates --><script>
+        <div class=" pure-u-6-24 pure_cell">
+            <div id="sidebar">
+                <div class="widget">
+                    <div id="search_bar">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="footer">
+        Contents © 2018         <a href="mailto:hanadumal@outlook.com">wangsheng</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
+        
+    </div>
+
+    <!--FIXME: put these somewhere                            -->
+    <!--%if len(translations) > 1:-->
+    <!--<li>
+</li>-->
+    <!--%endif-->
+    <!--% if show_sourcelink:-->
+    <!--
+    <li>
+        <a href="/posts/mysql_update/index.rst" id="sourcelink">源代码</a>
+    </li>
+-->
+    <!--%endif-->
+    <link href="../../assets/css/duoshuo.css" type="text/css" rel="stylesheet">
+<script src="../../assets/js/jquery.min.js"></script><script src="../../assets/js/bootstrap.min.js"></script><script src="../../assets/js/moment-with-locales.min.js"></script><script src="../../assets/js/fancydates.js"></script><script src="../../assets/js/jquery.colorbox-min.js"></script><script>$('a.image-reference:not(.islink) img:not(.islink)').parent().colorbox({rel:"gal",maxWidth:"100%",maxHeight:"100%",scalePhotos:true});</script><!-- fancy dates --><script>
     moment.locale("zh-cn");
     fancydates(0, "YYYY-MM-DD HH:mm");
     </script><!-- end fancy dates -->
+</div>
+</div>
 </body>
 </html>
