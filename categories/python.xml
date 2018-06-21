@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="../assets/xml/rss.xsl" media="all"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>WangSheng's Blog (文章分类：python)</title><link>http://blog.wangsheng.life/</link><description></description><atom:link href="http://blog.wangsheng.life/categories/python.xml" rel="self" type="application/rss+xml"></atom:link><language>zh_cn</language><copyright>Contents © 2018 &lt;a href="mailto:hanadumal@outlook.com"&gt;wangsheng&lt;/a&gt; </copyright><lastBuildDate>Thu, 21 Jun 2018 06:32:18 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>开始使用wheel</title><link>http://blog.wangsheng.life/posts/python_wheel/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;div class="section" id="id1"&gt;
+&lt;h2&gt;wheels是什么&lt;/h2&gt;
+&lt;p&gt;造轮子这个词应该都不会陌生，wheels可以理解为python提供给用户的轮子。轮子多、易用也成就了是python受欢迎现状。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="wheelspython"&gt;
+&lt;h2&gt;wheels是新的python分发标准&lt;/h2&gt;
+&lt;p&gt;一个个轮子虽然有了，但是要怎么才能拿过来用是另外一件事情。此前Python包的分发是混乱的，有了wheel之后这种现象正逐步得到改观。从 &lt;a class="reference external" href="https://pythonwheels.com/"&gt;pythonwheels&lt;/a&gt; 的数据中可以看到，截止[2018/06/03]pypi上下载量前360名的包已经有263个支持wheel工具,也就是说73.06%的包已经wheel。现在是时候使用wheel来武装自己了！&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="wheel"&gt;
+&lt;h2&gt;wheel的使用前提&lt;/h2&gt;
+&lt;pre class="literal-block"&gt;
+pip &amp;gt;= 1.4
+setuptools &amp;gt;= 0.8
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h2&gt;延伸&lt;/h2&gt;
+&lt;p&gt;从pythonwheels上抓取前360位的包名称。&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>python</category><guid>http://blog.wangsheng.life/posts/python_wheel/</guid><pubDate>Sat, 02 Jun 2018 16:00:00 GMT</pubDate></item></channel></rss>

@@ -1,0 +1,4 @@
+Sitemap: http://blog.wangsheng.life/sitemapindex.xml
+
+User-Agent: *
+Host: blog.wangsheng.life

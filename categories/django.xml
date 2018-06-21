@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="../assets/xml/rss.xsl" media="all"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>WangSheng's Blog (文章分类：django)</title><link>http://blog.wangsheng.life/</link><description></description><atom:link href="http://blog.wangsheng.life/categories/django.xml" rel="self" type="application/rss+xml"></atom:link><language>zh_cn</language><copyright>Contents © 2018 &lt;a href="mailto:hanadumal@outlook.com"&gt;wangsheng&lt;/a&gt; </copyright><lastBuildDate>Thu, 21 Jun 2018 06:32:18 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>Django应用部署</title><link>http://blog.wangsheng.life/posts/django_deploy/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;p&gt;使用django-admin的runserver命令很方便就可以在本地进行web开发和测试。部署则需要额外的一些工作，主要步骤包括：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;服务器python安装&lt;/li&gt;
+&lt;li&gt;使用到的python lib安装&lt;/li&gt;
+&lt;li&gt;前端webserver安装和配置&lt;/li&gt;
+&lt;li&gt;uwsgi配置和安装&lt;/li&gt;
+&lt;li&gt;服务整体连通性测试&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="section" id="python"&gt;
+&lt;h2&gt;服务器python安装&lt;/h2&gt;
+&lt;p&gt;推荐源码包编译，自定义部署路径。原因：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;出于内网环境安全的考虑，一般不会给予用户root权限。&lt;/li&gt;
+&lt;li&gt;方便日后升级等管理工作的进行&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+&lt;div class="section" id="python-lib"&gt;
+&lt;h2&gt;使用到的python lib的安装&lt;/h2&gt;
+&lt;p&gt;如果内网环境有pip源，则使用pip方式。在pip不可用、内网无法访问外网时，考虑使用wheel方式安装。最后考虑使用lib的源码包进行安装。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="webserver"&gt;
+&lt;h2&gt;webserver安装和配置&lt;/h2&gt;
+&lt;p&gt;nginx源码编译。nginx.conf修改，配置static和django用到的location。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="uwsgi"&gt;
+&lt;h2&gt;uwsgi配置和安装&lt;/h2&gt;
+&lt;p&gt;详细步骤参考：&lt;a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/"&gt;How to use Django with uWSGI&lt;/a&gt;&lt;/p&gt;
+&lt;div class="section" id="id1"&gt;
+&lt;h3&gt;uWSGI模型&lt;/h3&gt;
+&lt;p&gt;uWSGI是一个client-server模型。Web Server和django-uwsgi的worker进程交互来提供动态内容。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h3&gt;安装uwsgi&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+$ pip install uwsgi
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h3&gt;uWSGI配置&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+[uwsgi]
+socket = :8001
+chdir = /path/to/uda_ui
+wsgi-file = uda/wsgi.py
+process = 4
+threads = 2
+max-requests = 5000
+pidfile = /path/to/uda_ui/project-master.pid
+daemonize = /path/to/uda_ui/wsgi.log
+buffer-size = 32678
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id4"&gt;
+&lt;h3&gt;启动uwsgi&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+uwsgi --ini uwsgi.ini
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id5"&gt;
+&lt;h2&gt;服务整体连通性测试&lt;/h2&gt;
+&lt;p&gt;在本机进行开发的时候为了便捷，没有考虑使用的组件版本，在利用pip和brew安装的版本跟线上服务器的版本并不一定相同。在进行完上述单机部署的时候，需要对服务器各组件的连通性进行一次整体的排查，保证组件的兼容性。&lt;/p&gt;
+&lt;div class="section" id="bad-case"&gt;
+&lt;h3&gt;bad case&lt;/h3&gt;
+&lt;p&gt;nginx的配置已经完成，打开页面发现easyui-ui控件没有数据。在wsgi.log中发现&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+django.db.utils.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+[pid: 33013|app: 0|req: 2/2] 172.24.191.3 () {50 vars in 2300 bytes} [Tue Jun 12 20:26:07 2018] POST /metadata/metatables =&amp;gt; generated 23210 bytes in 519 msecs (HTTP/1.1 500) 4 headers in 145 bytes (1 switches on core 1)
+&lt;/pre&gt;
+&lt;p&gt;google之，百思不得其解。查看pymysql的版本发现是&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+&amp;gt;&amp;gt;&amp;gt; pymysql.__version__
+'0.8.1'
+&lt;/pre&gt;
+&lt;p&gt;初步怀疑是'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED'这条命令没办法在线上的MySQL执行，进行验证&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+mysql&amp;gt; SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+Query OK, 0 rows affected (0.00 sec)
+&lt;/pre&gt;
+&lt;p&gt;是不是pymysql的问题？打开&lt;a class="reference external" href="https://github.com/PyMySQL/PyMySQL"&gt;PyMySQL GitHub&lt;/a&gt;查看安装条件&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Requirements
+
+Python -- one of the following:
+    CPython : 2.7 and &amp;gt;= 3.4
+    PyPy : Latest version
+MySQL Server -- one of the following:
+    MySQL &amp;gt;= 5.5
+    MariaDB &amp;gt;= 5.5
+&lt;/pre&gt;
+&lt;p&gt;看来需要将MySQL5.1升级MySQL5.5了。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id6"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;table class="docutils citation" frame="void" id="pymysql-github" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[PyMySQL-GITHUB]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://github.com/PyMySQL/PyMySQL"&gt;https://github.com/PyMySQL/PyMySQL&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="how-to-use-django-with-wwsgi" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[How-to-use-Django-with-wWSGI]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/"&gt;https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>django</category><guid>http://blog.wangsheng.life/posts/django_deploy/</guid><pubDate>Wed, 13 Jun 2018 06:37:00 GMT</pubDate></item></channel></rss>

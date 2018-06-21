@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article# fb: http://ogp.me/ns/fb# " lang="zh_cn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python 3 subprocess 新高层API | WangSheng's Blog</title>
+<link href="../../assets/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/html4css1.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/nikola_rst.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/code.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/colorbox.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/theme.css" rel="stylesheet" type="text/css">
+<meta name="theme-color" content="#5670d4">
+<meta name="generator" content="Nikola (getnikola.com)">
+<link rel="alternate" type="application/rss+xml" title="RSS" href="../../rss.xml">
+<link rel="canonical" href="http://blog.wangsheng.life/posts/python_subprocess/">
+<meta property="fb:app_id" content="">
+<!--[if lt IE 9]><script src="../../assets/js/html5.js"></script><![endif]--><meta name="author" content="wangsheng">
+<link rel="prev" href="../python_wheel/" title="开始使用wheel" type="text/html">
+<link rel="next" href="../restructtext_grammer/" title="restructText 语法" type="text/html">
+<meta property="og:site_name" content="WangSheng's Blog">
+<meta property="og:title" content="Python 3 subprocess 新高层API">
+<meta property="og:url" content="http://blog.wangsheng.life/posts/python_subprocess/">
+<meta property="og:description" content="subprocess模块用来创建新的进程，连接到它的标准输入/标准输出/错误输出。
+
+使用subprocess
+标准库官方文档的推荐使用run()来处理它能应对的所有功能。当需要更高级的功能的时候，直接使用底层的Popen接口。run()是3.5加入的，如果为了保持兼容性还是可以继续使用老的高层API.
+subprocess.run(args, *, stdin=None, input=None,">
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2018-06-09T00:00:00+08:00">
+</head>
+<body>
+<a href="#content" class="sr-only sr-only-focusable">跳到主内容</a>
+
+<!-- Menubar -->
+
+<nav class="navbar navbar-inverse navbar-static-top"><div class="container">
+<!-- This keeps the margins nice -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-navbar" aria-controls="bs-navbar" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="http://blog.wangsheng.life/">
+
+                <span id="blog-title">WangSheng's Blog</span>
+            </a>
+        </div>
+<!-- /.navbar-header -->
+        <div class="collapse navbar-collapse" id="bs-navbar" role="navigation" aria-expanded="false">
+            <ul class="nav navbar-nav">
+<li>
+<a href="../../archive.html">文章存档</a>
+                </li>
+<li>
+<a href="../../categories/">标签</a>
+                </li>
+<li>
+<a href="../../rss.xml">RSS 源</a>
+
+                
+            </li>
+</ul>
+<ul class="nav navbar-nav navbar-right">
+<li>
+    <a href="index.rst" id="sourcelink">源代码</a>
+    </li>
+
+                
+            </ul>
+</div>
+<!-- /.navbar-collapse -->
+    </div>
+<!-- /.container -->
+</nav><!-- End of Menubar --><div class="container" id="content" role="main">
+    <div class="body-content">
+        <!--Body content-->
+        <div class="row">
+            
+            
+<article class="post-text h-entry hentry postpage" itemscope="itemscope" itemtype="http://schema.org/Article"><header><h1 class="p-name entry-title" itemprop="headline name"><a href="." class="u-url">Python 3 subprocess 新高层API</a></h1>
+
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                    wangsheng
+            </span></p>
+            <p class="dateline"><a href="." rel="bookmark"><time class="published dt-published" datetime="2018-06-09T00:00:00+08:00" itemprop="datePublished" title="2018-06-09 00:00">2018-06-09 00:00</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/python_subprocess/">
+
+
+            
+        <p class="sourceline"><a href="index.rst" class="sourcelink">源代码</a></p>
+
+        </span></p>
+</div>
+        
+
+    </header><div class="e-content entry-content" itemprop="articleBody text">
+    <div>
+<p>subprocess模块用来创建新的进程，连接到它的标准输入/标准输出/错误输出。</p>
+<div class="section" id="id1">
+<h2>使用subprocess</h2>
+<p>标准库官方文档的推荐使用run()来处理它能应对的所有功能。当需要更高级的功能的时候，直接使用底层的Popen接口。run()是3.5加入的，如果为了保持兼容性还是可以继续使用老的高层API.</p>
+<p>subprocess.run(args, *, stdin=None, input=None, stdout=None, stdin=None, shell=False, cwd=None, timeout=None,
+check=False, encoding=None, errors=None, env=None)</p>
+<p>run函数执行args描述的命令，等待子进程完成，返回一个CompletedProcess实例。</p>
+<p>完整的参数列表与Popen基本一致，除了timeout, input 和 check, 其他所有的参数都被传递给Popen</p>
+<p>默认不捕获stdout和stderr，如果想要捕获，需要传递为stdout/stderr传递PIPE参数。</p>
+<p>timeout参数将传递给Popen.communicate().如果超时了，子进程将会被杀死，父进程等在子进程死亡，并且在之后抛出TimeoutExpired</p>
+<p>input参数也传递给Popen.communicate(), 也就是子进程的stdin. input必须是byte序列，在制定了encoding或者errors或者universal_newlines 是true的情况下，可以是字符串。在使用的时候，内部的Popen对象已经自动使用stdin=PIPE创建，因此stdin=PIPE可以不需要。</p>
+<p>如果check is true, 子进程退出的返回值是非0，那么会抛出CalledProcessError 异常。异常的数值中包含有参数，退出值，stdin stdout的值。</p>
+<p>如果声明了encoding或errors或universal_newlines is true,;stdin, stdout, stderr使用特定的encoding和error的text模式打开。其他情况下使用二进制模式打开。</p>
+<p>如果env不是None, 那它必须是定义环境变量的一个映射。这些环境变量被传递给子进程，而不是继承父进程的环境变量。</p>
+<p>3.5 新引入的
+3.6 添加了encoding和errors的支持</p>
+<p><em>class</em> subprocess.**CompletedProcess**</p>
+<blockquote>
+<p>run()函数的返回值，代表一个已经结束执行的进程。</p>
+<dl class="docutils">
+<dt><strong>args</strong></dt>
+<dd>创建进程传递进来的参数。必须是一个list或者string</dd>
+<dt><strong>returncode</strong></dt>
+<dd>进程的返回值。通常0代表正常退出。在POSIX下，负数返回值-N,代表进程因signal N结束。</dd>
+<dt><strong>stdout</strong></dt>
+<dd>
+<p class="first">捕获子进程的标准输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.</p>
+<p class="last">如果run()的时候stderr=subprocess.STDOUT,那么子进程的标准错误输出会重定向到标准输出。stderr将会是None.</p>
+</dd>
+<dt><strong>stderr</strong></dt>
+<dd>捕获子进程的标准错误输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.</dd>
+<dt><strong>check_returncode()</strong></dt>
+<dd>如果returncode不是0，抛出CalledProcessError</dd>
+</dl>
+</blockquote>
+<p><em>exception</em> subprocess.<strong>SubprocessError</strong></p>
+<blockquote>
+<p>subprocess模块所有异常的基类</p>
+<p>3.3 新引入的</p>
+</blockquote>
+<p><em>exception</em> subprocess.<strong>TimeoutExpired</strong></p>
+<blockquote>
+SubprocessError的子类。代表子进程超时错误。</blockquote>
+<p><em>exception</em> subprocess.<strong>CalledProcessError</strong></p>
+<blockquote>
+<p><strong>cmd</strong></p>
+<p><strong>timeout</strong></p>
+<p><strong>output</strong></p>
+<p><strong>stdout</strong></p>
+<p><strong>stderr</strong></p>
+<p>3.5 新增stdout stderr属性</p>
+</blockquote>
+<p>SubprocessError的子类，check_call()或check_output()的返回值非0时抛出该异常。</p>
+<blockquote>
+<p><strong>returncode</strong></p>
+<p><strong>cmd</strong></p>
+<p><strong>output</strong></p>
+<p><strong>stdout</strong></p>
+<p><strong>stderr</strong></p>
+<p>3.5 新引入的</p>
+</blockquote>
+</div>
+<div class="section" id="api">
+<h2>替代老的高层API</h2>
+<p>Python 3.5前的高层API由三个函数组成。虽然可以使用run()取代它们，但是很多老代码仍然使用这三个函数。</p>
+<p>subprocess.<strong>call</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)</p>
+<blockquote>
+等同于
+run(...).returncode</blockquote>
+<p>subprocess.<strong>check_call</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)</p>
+<blockquote>
+等同于
+run(..., check=True)</blockquote>
+<p>subprocess.<strong>check_output</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, encoding=None, errors=None, universal_newlines=False, timeout=None)</p>
+<blockquote>
+等同于
+run(..., check=True, stdout=PIPE).stdout</blockquote>
+</div>
+<div class="section" id="id2">
+<h2>我的意见</h2>
+<p>暂时不会对老代码中的subprocess往新的API迁移，就方便记忆这点来说老API更容易使用。</p>
+</div>
+<div class="section" id="id3">
+<h2>参考资料</h2>
+<p>Python3标准库subprocess: <a class="reference external" href="https://docs.python.org/3/library/subprocess.html">https://docs.python.org/3/library/subprocess.html</a></p>
+</div>
+</div>
+    </div>
+    <aside class="postpromonav"><nav><ul class="pager hidden-print">
+<li class="previous">
+                <a href="../python_wheel/" rel="prev" title="开始使用wheel">前一篇</a>
+            </li>
+            <li class="next">
+                <a href="../restructtext_grammer/" rel="next" title="restructText 语法">后一篇</a>
+            </li>
+        </ul></nav></aside><section class="comments hidden-print"><h2>注释</h2>
+        
+        
+<div id="fb-root"></div>
+<script>
+  window.fbAsyncInit = function() {
+    // init the FB JS SDK
+    FB.init({
+      appId      : '',
+      status     : true,
+      xfbml      : true
+    });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script><div class="fb-comments" data-href="http://blog.wangsheng.life/posts/python_subprocess/" data-width="470"></div>
+
+
+        </section></article><div id="fb-root"></div>
+<script>
+    // thank lxml for this
+    $('.fb-comments-count').each(function(i, obj) {
+        var url = obj.attributes['data-url'].value;
+        // change here if you dislike the default way of displaying
+        // this
+        obj.innerHTML = '<fb:comments-count href="' + url + '"></fb:comments-count> comments';
+    });
+
+  window.fbAsyncInit = function() {
+    // init the FB JS SDK
+    FB.init({
+      appId      : '',
+      status     : true,
+      xfbml      : true
+    });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+</div>
+        <!--End of body content-->
+
+        <footer id="footer">
+            Contents © 2018         <a href="mailto:hanadumal@outlook.com">wangsheng</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
+            
+        </footer>
+</div>
+</div>
+
+
+            <script src="../../assets/js/jquery.min.js"></script><script src="../../assets/js/bootstrap.min.js"></script><script src="../../assets/js/moment-with-locales.min.js"></script><script src="../../assets/js/fancydates.js"></script><script src="../../assets/js/jquery.colorbox-min.js"></script><script src="../../assets/js/colorbox-i18n/jquery.colorbox-zh-CN.js"></script><script>$('a.image-reference:not(.islink) img:not(.islink)').parent().colorbox({rel:"gal",maxWidth:"100%",maxHeight:"100%",scalePhotos:true});</script><!-- fancy dates --><script>
+    moment.locale("zh-cn");
+    fancydates(0, "YYYY-MM-DD HH:mm");
+    </script><!-- end fancy dates -->
+</body>
+</html>

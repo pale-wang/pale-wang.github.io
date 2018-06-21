@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article# fb: http://ogp.me/ns/fb# " lang="zh_cn">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="This is WangSheng's tech blog.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WangSheng's Blog</title>
+<link href="assets/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link href="assets/css/html4css1.css" rel="stylesheet" type="text/css">
+<link href="assets/css/nikola_rst.css" rel="stylesheet" type="text/css">
+<link href="assets/css/code.css" rel="stylesheet" type="text/css">
+<link href="assets/css/colorbox.css" rel="stylesheet" type="text/css">
+<link href="assets/css/theme.css" rel="stylesheet" type="text/css">
+<meta name="theme-color" content="#5670d4">
+<meta name="generator" content="Nikola (getnikola.com)">
+<link rel="alternate" type="application/rss+xml" title="RSS" href="rss.xml">
+<link rel="canonical" href="http://blog.wangsheng.life/">
+<meta property="fb:app_id" content="">
+<!--[if lt IE 9]><script src="assets/js/html5.js"></script><![endif]--><link rel="prefetch" href="posts/mysql_update/" type="text/html">
+</head>
+<body>
+<a href="#content" class="sr-only sr-only-focusable">跳到主内容</a>
+
+<!-- Menubar -->
+
+<nav class="navbar navbar-inverse navbar-static-top"><div class="container">
+<!-- This keeps the margins nice -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-navbar" aria-controls="bs-navbar" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="http://blog.wangsheng.life/">
+
+                <span id="blog-title">WangSheng's Blog</span>
+            </a>
+        </div>
+<!-- /.navbar-header -->
+        <div class="collapse navbar-collapse" id="bs-navbar" role="navigation" aria-expanded="false">
+            <ul class="nav navbar-nav">
+<li>
+<a href="archive.html">文章存档</a>
+                </li>
+<li>
+<a href="categories/">标签</a>
+                </li>
+<li>
+<a href="rss.xml">RSS 源</a>
+
+                
+            </li>
+</ul>
+<ul class="nav navbar-nav navbar-right"></ul>
+</div>
+<!-- /.navbar-collapse -->
+    </div>
+<!-- /.container -->
+</nav><!-- End of Menubar --><div class="container" id="content" role="main">
+    <div class="body-content">
+        <!--Body content-->
+        <div class="row">
+            
+            
+
+    
+
+
+    
+<div class="postindex">
+    <article class="h-entry post-text"><header><h1 class="p-name entry-title"><a href="posts/mysql_update/" class="u-url">MySQL5.1升级5.5</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                wangsheng
+            </span></p>
+            <p class="dateline"><a href="posts/mysql_update/" rel="bookmark"><time class="published dt-published" datetime="2018-06-14T16:04:00+08:00" title="2018-06-14 16:04">2018-06-14 16:04</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/mysql_update/">
+
+
+        </span></p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<div class="section" id="id1">
+<h2>背景</h2>
+<p>在往内网集群部署django应用时</p>
+<pre class="literal-block">
+Traceback (most recent call last):
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/utils.py", line 83, in _execute
+    return self.cursor.execute(sql)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/mysql/base.py", line 71, in execute
+    return self.cursor.execute(query, args)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 170, in execute
+    result = self._query(query)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 328, in _query
+    conn.query(q)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 893, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1103, in _read_query_result
+    result.read()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1396, in read
+    first_packet = self.connection._read_packet()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1059, in _read_packet
+    packet.check_error()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 384, in check_error
+    err.raise_mysql_exception(self._data)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+</pre>
+</div>
+<div class="section" id="mysql">
+<h2>MySQL升级路径规划</h2>
+<p>先从MySQL5.1升级到MySQL5.5：</p>
+<ol class="arabic simple">
+<li>主机LOCK, dump出所有数据，并等待从库同步完成</li>
+<li>从库停机</li>
+<li>主库升级</li>
+<li>启动主库</li>
+<li>主库LOCK, dump出所有数据，获取binlog的坐标</li>
+<li>从库部署，并建立与主库的同步</li>
+</ol>
+<div class="section" id="id2">
+<h3>5.1老版本启动</h3>
+<p>查看机器上5.1版本的进程</p>
+<pre class="literal-block">
+/bin/sh ./mysqld_safe --defaults-file=../my.cnf
+/home/iknow/mysql5/libexec/mysqld --defaults-file=../my.cnf --basedir=/home/iknow/mysql5 --datadir=/home/iknow/mysql5/var --log-error=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.err --pid-file=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.pid --socket=/home/iknow/mysql5/tmp/mysql.sock --port=3306
+</pre>
+<p>在执行完mysqld_safe后，这个脚本使用mysqld开启真正的服务器进程，同时添加额外的basedir data-dir log-error pid-file socket port参数</p>
+</div>
+<div class="section" id="id3">
+<h3>导出数据</h3>
+<pre class="literal-block">
+mysql5/bin/mysqldump -uroot -h 127.0.0.1 --add-drop-table --routines --events --all-databases --force &gt; 2018-06-13-uda-all.sql
+</pre>
+</div>
+<div class="section" id="id4">
+<h3>服务器关机</h3>
+<pre class="literal-block">
+mysqladmin -u root -h 127.0.0.1 shutdown
+</pre>
+</div>
+<div class="section" id="mysql5-5">
+<h3>MySQL5.5安装</h3>
+<p>安装MySQL5.5</p>
+</div>
+<div class="section" id="id5">
+<h3>MySQL5.5启动</h3>
+<p>首先，需要初始化data目录</p>
+<pre class="literal-block">
+scripts/mysql_install_db --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data
+</pre>
+<p>接着启动MySQL5.5</p>
+<pre class="literal-block">
+mysqld_safe --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data  --skip-slave-start
+</pre>
+<p>在这个过程中可能会遇到5.5不支持5.1版本option的情况，根据log-error进行修改即可。比如<tt class="docutils literal"><span class="pre">skip-locking</span></tt>在在5.5版本中已经被<tt class="docutils literal"><span class="pre">skip-external-locking</span></tt>替代 <a class="citation-reference" href="posts/mysql_update/#what-is-new-in-mysql5-5" id="id6">[What-is-New-in-MySQL5.5]</a> ，需要进行修改。</p>
+<p>当看到如下提示,就意味着MySQL初始化成功了</p>
+<pre class="literal-block">
+Installing MySQL system tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30065 ...
+OK
+Filling help tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30621 ...
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+./bin/mysqladmin -u root password 'new-password'
+./bin/mysqladmin -u root -h hz01-iknow-udw02.hz01.baidu.com password 'new-password'
+
+Alternatively you can run:
+./bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+cd . ; ./bin/mysqld_safe &amp;
+
+You can test the MySQL daemon with mysql-test-run.pl
+cd ./mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+</pre>
+</div>
+<div class="section" id="lock">
+<h3>LOCK主库</h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="30%">
+<col width="17%">
+<col width="23%">
+<col width="30%">
+</colgroup>
+<tbody valign="top">
+<tr>
+<td>File</td>
+<td>Position</td>
+<td>Binlog_Do_DB</td>
+<td>Binlog_Ignore_DB</td>
+</tr>
+<tr>
+<td>mysql-bin.000006</td>
+<td>85746</td>
+<td> </td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id7">
+<h3>从库开启同步</h3>
+<p>使用<tt class="docutils literal">CHANGE MASTER TO</tt>来指定开始主库的坐标信息</p>
+<pre class="literal-block">
+CHANGE MASTER TO
+    MASTER_HOST='hostname',
+    MASTER_USER='username',
+    MASTER_PASSWORD='password',
+    MASTER_PORT=3306,
+    MASTER_LOG_FILE='mysql-bin.000006',
+    MASTER_LOG_POS=85746,
+    MASTER_CONNECT_RETRY=10;
+</pre>
+</div>
+<div class="section" id="id8">
+<h3>5.1升级5.5不支持的参数</h3>
+<p><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html">5.5不支持的master参数</a>包括:</p>
+<ul class="simple">
+<li>--master-host</li>
+<li>--master-user</li>
+<li>--master-password</li>
+<li>--master-port</li>
+<li>--master-connect-retry</li>
+<li>--master-ssl</li>
+<li>--master-ssl-ca</li>
+<li>--master-ssl-capath</li>
+<li>--master-ssl-cert</li>
+<li>--master-ssl-cipher</li>
+<li>--master-ssl-key</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id9">
+<h2>参考资料</h2>
+<table class="docutils citation" frame="void" id="installing-mysql-using-a-standard-source-distribution" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Installing-MySQL-Using-a-Standard-Source-Distribution]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html">https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="mysql-upgrade-strategies" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[MySQL-Upgrade-Strategies]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html">https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="replication-slave-options-and-variables" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Replication-Slave-Options-and-Variables]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html">https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="change-master-to-syntax" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Change-Master-to-Syntax]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html">https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="what-is-new-in-mysql5-5" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label"><a class="fn-backref" href="posts/mysql_update/#id6">[What-is-New-in-MySQL5.5]</a></td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html">https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html</a></td>
+</tr></tbody>
+</table>
+</div>
+</div>
+    </div>
+    </article><article class="h-entry post-text"><header><h1 class="p-name entry-title"><a href="posts/django_deploy/" class="u-url">Django应用部署</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                wangsheng
+            </span></p>
+            <p class="dateline"><a href="posts/django_deploy/" rel="bookmark"><time class="published dt-published" datetime="2018-06-13T14:37:00+08:00" title="2018-06-13 14:37">2018-06-13 14:37</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/django_deploy/">
+
+
+        </span></p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<p>使用django-admin的runserver命令很方便就可以在本地进行web开发和测试。部署则需要额外的一些工作，主要步骤包括：</p>
+<ol class="arabic simple">
+<li>服务器python安装</li>
+<li>使用到的python lib安装</li>
+<li>前端webserver安装和配置</li>
+<li>uwsgi配置和安装</li>
+<li>服务整体连通性测试</li>
+</ol>
+<div class="section" id="python">
+<h2>服务器python安装</h2>
+<p>推荐源码包编译，自定义部署路径。原因：</p>
+<ol class="arabic simple">
+<li>出于内网环境安全的考虑，一般不会给予用户root权限。</li>
+<li>方便日后升级等管理工作的进行</li>
+</ol>
+</div>
+<div class="section" id="python-lib">
+<h2>使用到的python lib的安装</h2>
+<p>如果内网环境有pip源，则使用pip方式。在pip不可用、内网无法访问外网时，考虑使用wheel方式安装。最后考虑使用lib的源码包进行安装。</p>
+</div>
+<div class="section" id="webserver">
+<h2>webserver安装和配置</h2>
+<p>nginx源码编译。nginx.conf修改，配置static和django用到的location。</p>
+</div>
+<div class="section" id="uwsgi">
+<h2>uwsgi配置和安装</h2>
+<p>详细步骤参考：<a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/">How to use Django with uWSGI</a></p>
+<div class="section" id="id1">
+<h3>uWSGI模型</h3>
+<p>uWSGI是一个client-server模型。Web Server和django-uwsgi的worker进程交互来提供动态内容。</p>
+</div>
+<div class="section" id="id2">
+<h3>安装uwsgi</h3>
+<pre class="literal-block">
+$ pip install uwsgi
+</pre>
+</div>
+<div class="section" id="id3">
+<h3>uWSGI配置</h3>
+<pre class="literal-block">
+[uwsgi]
+socket = :8001
+chdir = /path/to/uda_ui
+wsgi-file = uda/wsgi.py
+process = 4
+threads = 2
+max-requests = 5000
+pidfile = /path/to/uda_ui/project-master.pid
+daemonize = /path/to/uda_ui/wsgi.log
+buffer-size = 32678
+</pre>
+</div>
+<div class="section" id="id4">
+<h3>启动uwsgi</h3>
+<pre class="literal-block">
+uwsgi --ini uwsgi.ini
+</pre>
+</div>
+</div>
+<div class="section" id="id5">
+<h2>服务整体连通性测试</h2>
+<p>在本机进行开发的时候为了便捷，没有考虑使用的组件版本，在利用pip和brew安装的版本跟线上服务器的版本并不一定相同。在进行完上述单机部署的时候，需要对服务器各组件的连通性进行一次整体的排查，保证组件的兼容性。</p>
+<div class="section" id="bad-case">
+<h3>bad case</h3>
+<p>nginx的配置已经完成，打开页面发现easyui-ui控件没有数据。在wsgi.log中发现</p>
+<pre class="literal-block">
+File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+django.db.utils.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+[pid: 33013|app: 0|req: 2/2] 172.24.191.3 () {50 vars in 2300 bytes} [Tue Jun 12 20:26:07 2018] POST /metadata/metatables =&gt; generated 23210 bytes in 519 msecs (HTTP/1.1 500) 4 headers in 145 bytes (1 switches on core 1)
+</pre>
+<p>google之，百思不得其解。查看pymysql的版本发现是</p>
+<pre class="literal-block">
+&gt;&gt;&gt; pymysql.__version__
+'0.8.1'
+</pre>
+<p>初步怀疑是'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED'这条命令没办法在线上的MySQL执行，进行验证</p>
+<pre class="literal-block">
+mysql&gt; SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+Query OK, 0 rows affected (0.00 sec)
+</pre>
+<p>是不是pymysql的问题？打开<a class="reference external" href="https://github.com/PyMySQL/PyMySQL">PyMySQL GitHub</a>查看安装条件</p>
+<pre class="literal-block">
+Requirements
+
+Python -- one of the following:
+    CPython : 2.7 and &gt;= 3.4
+    PyPy : Latest version
+MySQL Server -- one of the following:
+    MySQL &gt;= 5.5
+    MariaDB &gt;= 5.5
+</pre>
+<p>看来需要将MySQL5.1升级MySQL5.5了。</p>
+</div>
+</div>
+<div class="section" id="id6">
+<h2>参考资料</h2>
+<table class="docutils citation" frame="void" id="pymysql-github" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[PyMySQL-GITHUB]</td>
+<td><a class="reference external" href="https://github.com/PyMySQL/PyMySQL">https://github.com/PyMySQL/PyMySQL</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="how-to-use-django-with-wwsgi" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[How-to-use-Django-with-wWSGI]</td>
+<td><a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/">https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/</a></td>
+</tr></tbody>
+</table>
+</div>
+</div>
+    </div>
+    </article><article class="h-entry post-text"><header><h1 class="p-name entry-title"><a href="posts/restructtext_grammer/" class="u-url">restructText 语法</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                wangsheng
+            </span></p>
+            <p class="dateline"><a href="posts/restructtext_grammer/" rel="bookmark"><time class="published dt-published" datetime="2018-06-13T00:00:00+08:00" title="2018-06-13 00:00">2018-06-13 00:00</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/restructtext_grammer/">
+
+
+        </span></p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<div class="section" id="restructtext">
+<h2>restructText语法基础</h2>
+<div class="section" id="source-code">
+<h3>源代码块Source Code</h3>
+<p>代码文本块由特殊标记 ::的段落引发。整个代码块必须具有相同的缩进</p>
+<p>::是智能处理的</p>
+<ul class="simple">
+<li>如果它紧在文本后出现，则被替换成:</li>
+<li>如果它前面有空格，则不会显示</li>
+</ul>
+</div>
+<div class="section" id="citations">
+<h3>引用 Citations</h3>
+<p>例如在文章的末尾定义了参考资料的外部链接，在内部只需要使用<tt class="docutils literal">[Ref]_</tt>就可以引用其中的资料</p>
+</div>
+<div class="section" id="inline-markup">
+<h3>内联标签 Inline Markup</h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="32%">
+<col width="31%">
+<col width="36%">
+</colgroup>
+<tbody valign="top">
+<tr>
+<td>*emphasis*</td>
+<td>斜体</td>
+<td> </td>
+</tr>
+<tr>
+<td>**strong emphasis**</td>
+<td>加粗</td>
+<td> </td>
+</tr>
+<tr>
+<td>``inline literal``</td>
+<td>内联</td>
+<td>等宽字体，保留空格，但是不保留换行</td>
+</tr>
+<tr>
+<td>reference_</td>
+<td>引用</td>
+<td>简单的，单个单词的引用</td>
+</tr>
+<tr>
+<td>`phrase reference`_</td>
+<td>phrase reference</td>
+<td>复杂的，包含空格或者标点的引用</td>
+</tr>
+<tr>
+<td>anonymous__</td>
+<td>anonymous</td>
+<td>两个下划线，简单和复杂的引用都可以</td>
+</tr>
+<tr>
+<td>_`inline internal target`</td>
+<td>inline internal target</td>
+<td> </td>
+</tr>
+<tr>
+<td>|substitution reference|</td>
+<td> </td>
+<td> </td>
+</tr>
+<tr>
+<td>footnote reference [1]_</td>
+<td>footnote refenence <a class="footnote-reference" href="posts/restructtext_grammer/#id8" id="id1">[1]</a>
+</td>
+<td> </td>
+</tr>
+<tr>
+<td>citation reference [CIT2002]_</td>
+<td>citation reference <a class="citation-reference" href="posts/restructtext_grammer/#cit2002" id="id2">[CIT2002]</a>
+</td>
+<td> </td>
+</tr>
+<tr>
+<td>http://docutils.sf.net/</td>
+<td><a class="reference external" href="http://docutils.sf.net/">http://docutils.sf.net/</a></td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="hyperlink-targets">
+<h3>超链接 HyperLink Targets</h3>
+<div class="section" id="id3">
+<h4>外部链接</h4>
+<p>External hyperlinks, like <a class="reference external" href="http://www.python.org/">Python</a>.</p>
+</div>
+<div class="section" id="id4">
+<h4>内部链接</h4>
+<p>Internal crossreferences, like <a class="reference internal" href="posts/restructtext_grammer/#example">example</a>.</p>
+<p id="example">This is an example crossreference target.</p>
+</div>
+</div>
+<div class="section" id="id5">
+<h3>间接超链接</h3>
+<p><a class="reference external" href="http://www.python.org/">Python</a> is <a class="reference external" href="http://www.python.org/">my favourite programming language</a>.</p>
+<p>__ Python_</p>
+<div class="section" id="id7">
+<h4>隐式超链接</h4>
+<p>标题，脚注，引文都会自动生成超链接目标。
+标题也是超链接，比如<a class="reference internal" href="posts/restructtext_grammer/#id7">隐式超链接</a></p>
+</div>
+</div>
+<div class="section" id="footnotes">
+<h3>脚注 Footnotes</h3>
+<p>Footnote references, like [5]_.</p>
+<table class="docutils footnote" frame="void" id="id8" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label"><a class="fn-backref" href="posts/restructtext_grammer/#id1">[1]</a></td>
+<td>First footnote.</td>
+</tr></tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id9" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[5]</td>
+<td>A numerical footnote.</td>
+</tr></tbody>
+</table>
+</div>
+<div class="section" id="citation">
+<h3>引文 Citation</h3>
+<p>Citation reference, like [CIT2002]_.</p>
+<table class="docutils citation" frame="void" id="cit2002" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label"><a class="fn-backref" href="posts/restructtext_grammer/#id2">[CIT2002]</a></td>
+<td>A citation</td>
+</tr></tbody>
+</table>
+</div>
+<div class="section" id="escaping">
+<h3>转义 Escaping</h3>
+<p>reStructuredText使用("")作为转义元字符。转义时只需要在最左边的inline markup添加。</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%">
+<col width="48%">
+</colgroup>
+<tbody valign="top">
+<tr>
+<td>Raw reStructuredText</td>
+<td>Typical result</td>
+</tr>
+<tr>
+<td>*escape* ``with`` "\"</td>
+<td>eacape with ""</td>
+</tr>
+<tr>
+<td>\*escape* \``with`` "\\"</td>
+<td>*escape* ``with`` "\"</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="section-structure">
+<h3>区域结构 Section Structure</h3>
+<p>标题用下划线标识（也可以用上划线+下划线).划线的字符是非字符数字的7位ASCII码。
+推荐的选择有"= - ` : ' " ~ ^ _ * + # &lt; &gt;"</p>
+</div>
+<div class="section" id="paragraphs">
+<h3>段落 Paragraphs</h3>
+<p>段落靠在最左边。段落和段落之间用空行分隔。</p>
+</div>
+<div class="section" id="tables">
+<h3>表格Tables</h3>
+<p>表格的语法非常简明</p>
+<pre class="literal-block">
++------------------------+------------+----------+----------+
+| Header row, column 1   | Header 2   | Header 3 | Header 4 |
+| (header rows optional) |            |          |          |
++========================+============+==========+==========+
+| body row 1, column 1   | column 2   | column 3 | column 4 |
++------------------------+------------+----------+----------+
+| body row 2             | ...        | ...      |          |
++------------------------+------------+----------+----------+
+</pre>
+<p>它的效果如下：</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="43%">
+<col width="21%">
+<col width="18%">
+<col width="18%">
+</colgroup>
+<thead valign="bottom"><tr>
+<th class="head">Header row, column 1
+(header rows optional)</th>
+<th class="head">Header 2</th>
+<th class="head">Header 3</th>
+<th class="head">Header 4</th>
+</tr></thead>
+<tbody valign="top">
+<tr>
+<td>body row 1, column 1</td>
+<td>column 2</td>
+<td>column 3</td>
+<td>column 4</td>
+</tr>
+<tr>
+<td>body row 2</td>
+<td>...</td>
+<td>...</td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+<p>这也就意味着，从MySQL console中复制出来的数据，可以无缝的转变成文档中的table</p>
+</div>
+</div>
+<div class="section" id="id10">
+<h2>参考资料</h2>
+<table class="docutils citation" frame="void" id="quick-restructuredtext" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Quick-reStructuredText]</td>
+<td><a class="reference external" href="http://docutils.sourceforge.net/docs/user/rst/quickref.html">http://docutils.sourceforge.net/docs/user/rst/quickref.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="sphinx-1-3-1-document" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Sphinx-1.3.1-document]</td>
+<td><a class="reference external" href="http://sphinx-doc-zh.readthedocs.io/en/latest/rest.html#citations">http://sphinx-doc-zh.readthedocs.io/en/latest/rest.html#citations</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="docutils" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[docutils]</td>
+<td><a class="reference external" href="http://docutils-zh-cn.readthedocs.io/zh_CN/latest/ref/rst/restructuredtext.html#rst-citations">http://docutils-zh-cn.readthedocs.io/zh_CN/latest/ref/rst/restructuredtext.html#rst-citations</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="sphinx-doc" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[sphinx-doc]</td>
+<td><a class="reference external" href="http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html">http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html</a></td>
+</tr></tbody>
+</table>
+</div>
+</div>
+    </div>
+    </article><article class="h-entry post-text"><header><h1 class="p-name entry-title"><a href="posts/python_subprocess/" class="u-url">Python 3 subprocess 新高层API</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                wangsheng
+            </span></p>
+            <p class="dateline"><a href="posts/python_subprocess/" rel="bookmark"><time class="published dt-published" datetime="2018-06-09T00:00:00+08:00" title="2018-06-09 00:00">2018-06-09 00:00</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/python_subprocess/">
+
+
+        </span></p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<p>subprocess模块用来创建新的进程，连接到它的标准输入/标准输出/错误输出。</p>
+<div class="section" id="id1">
+<h2>使用subprocess</h2>
+<p>标准库官方文档的推荐使用run()来处理它能应对的所有功能。当需要更高级的功能的时候，直接使用底层的Popen接口。run()是3.5加入的，如果为了保持兼容性还是可以继续使用老的高层API.</p>
+<p>subprocess.run(args, *, stdin=None, input=None, stdout=None, stdin=None, shell=False, cwd=None, timeout=None,
+check=False, encoding=None, errors=None, env=None)</p>
+<p>run函数执行args描述的命令，等待子进程完成，返回一个CompletedProcess实例。</p>
+<p>完整的参数列表与Popen基本一致，除了timeout, input 和 check, 其他所有的参数都被传递给Popen</p>
+<p>默认不捕获stdout和stderr，如果想要捕获，需要传递为stdout/stderr传递PIPE参数。</p>
+<p>timeout参数将传递给Popen.communicate().如果超时了，子进程将会被杀死，父进程等在子进程死亡，并且在之后抛出TimeoutExpired</p>
+<p>input参数也传递给Popen.communicate(), 也就是子进程的stdin. input必须是byte序列，在制定了encoding或者errors或者universal_newlines 是true的情况下，可以是字符串。在使用的时候，内部的Popen对象已经自动使用stdin=PIPE创建，因此stdin=PIPE可以不需要。</p>
+<p>如果check is true, 子进程退出的返回值是非0，那么会抛出CalledProcessError 异常。异常的数值中包含有参数，退出值，stdin stdout的值。</p>
+<p>如果声明了encoding或errors或universal_newlines is true,;stdin, stdout, stderr使用特定的encoding和error的text模式打开。其他情况下使用二进制模式打开。</p>
+<p>如果env不是None, 那它必须是定义环境变量的一个映射。这些环境变量被传递给子进程，而不是继承父进程的环境变量。</p>
+<p>3.5 新引入的
+3.6 添加了encoding和errors的支持</p>
+<p><em>class</em> subprocess.**CompletedProcess**</p>
+<blockquote>
+<p>run()函数的返回值，代表一个已经结束执行的进程。</p>
+<dl class="docutils">
+<dt><strong>args</strong></dt>
+<dd>创建进程传递进来的参数。必须是一个list或者string</dd>
+<dt><strong>returncode</strong></dt>
+<dd>进程的返回值。通常0代表正常退出。在POSIX下，负数返回值-N,代表进程因signal N结束。</dd>
+<dt><strong>stdout</strong></dt>
+<dd>
+<p class="first">捕获子进程的标准输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.</p>
+<p class="last">如果run()的时候stderr=subprocess.STDOUT,那么子进程的标准错误输出会重定向到标准输出。stderr将会是None.</p>
+</dd>
+<dt><strong>stderr</strong></dt>
+<dd>捕获子进程的标准错误输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.</dd>
+<dt><strong>check_returncode()</strong></dt>
+<dd>如果returncode不是0，抛出CalledProcessError</dd>
+</dl>
+</blockquote>
+<p><em>exception</em> subprocess.<strong>SubprocessError</strong></p>
+<blockquote>
+<p>subprocess模块所有异常的基类</p>
+<p>3.3 新引入的</p>
+</blockquote>
+<p><em>exception</em> subprocess.<strong>TimeoutExpired</strong></p>
+<blockquote>
+SubprocessError的子类。代表子进程超时错误。</blockquote>
+<p><em>exception</em> subprocess.<strong>CalledProcessError</strong></p>
+<blockquote>
+<p><strong>cmd</strong></p>
+<p><strong>timeout</strong></p>
+<p><strong>output</strong></p>
+<p><strong>stdout</strong></p>
+<p><strong>stderr</strong></p>
+<p>3.5 新增stdout stderr属性</p>
+</blockquote>
+<p>SubprocessError的子类，check_call()或check_output()的返回值非0时抛出该异常。</p>
+<blockquote>
+<p><strong>returncode</strong></p>
+<p><strong>cmd</strong></p>
+<p><strong>output</strong></p>
+<p><strong>stdout</strong></p>
+<p><strong>stderr</strong></p>
+<p>3.5 新引入的</p>
+</blockquote>
+</div>
+<div class="section" id="api">
+<h2>替代老的高层API</h2>
+<p>Python 3.5前的高层API由三个函数组成。虽然可以使用run()取代它们，但是很多老代码仍然使用这三个函数。</p>
+<p>subprocess.<strong>call</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)</p>
+<blockquote>
+等同于
+run(...).returncode</blockquote>
+<p>subprocess.<strong>check_call</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)</p>
+<blockquote>
+等同于
+run(..., check=True)</blockquote>
+<p>subprocess.<strong>check_output</strong>(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, encoding=None, errors=None, universal_newlines=False, timeout=None)</p>
+<blockquote>
+等同于
+run(..., check=True, stdout=PIPE).stdout</blockquote>
+</div>
+<div class="section" id="id2">
+<h2>我的意见</h2>
+<p>暂时不会对老代码中的subprocess往新的API迁移，就方便记忆这点来说老API更容易使用。</p>
+</div>
+<div class="section" id="id3">
+<h2>参考资料</h2>
+<p>Python3标准库subprocess: <a class="reference external" href="https://docs.python.org/3/library/subprocess.html">https://docs.python.org/3/library/subprocess.html</a></p>
+</div>
+</div>
+    </div>
+    </article><article class="h-entry post-text"><header><h1 class="p-name entry-title"><a href="posts/python_wheel/" class="u-url">开始使用wheel</a></h1>
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                wangsheng
+            </span></p>
+            <p class="dateline"><a href="posts/python_wheel/" rel="bookmark"><time class="published dt-published" datetime="2018-06-03T00:00:00+08:00" title="2018-06-03 00:00">2018-06-03 00:00</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/python_wheel/">
+
+
+        </span></p>
+</div>
+    </header><div class="e-content entry-content">
+    <div>
+<div class="section" id="id1">
+<h2>wheels是什么</h2>
+<p>造轮子这个词应该都不会陌生，wheels可以理解为python提供给用户的轮子。轮子多、易用也成就了是python受欢迎现状。</p>
+</div>
+<div class="section" id="wheelspython">
+<h2>wheels是新的python分发标准</h2>
+<p>一个个轮子虽然有了，但是要怎么才能拿过来用是另外一件事情。此前Python包的分发是混乱的，有了wheel之后这种现象正逐步得到改观。从 <a class="reference external" href="https://pythonwheels.com/">pythonwheels</a> 的数据中可以看到，截止[2018/06/03]pypi上下载量前360名的包已经有263个支持wheel工具,也就是说73.06%的包已经wheel。现在是时候使用wheel来武装自己了！</p>
+</div>
+<div class="section" id="wheel">
+<h2>wheel的使用前提</h2>
+<pre class="literal-block">
+pip &gt;= 1.4
+setuptools &gt;= 0.8
+</pre>
+</div>
+<div class="section" id="id2">
+<h2>延伸</h2>
+<p>从pythonwheels上抓取前360位的包名称。</p>
+</div>
+</div>
+    </div>
+    </article>
+</div>
+
+
+
+        
+<div id="fb-root"></div>
+<script>
+    // thank lxml for this
+    $('.fb-comments-count').each(function(i, obj) {
+        var url = obj.attributes['data-url'].value;
+        // change here if you dislike the default way of displaying
+        // this
+        obj.innerHTML = '<fb:comments-count href="' + url + '"></fb:comments-count> comments';
+    });
+
+  window.fbAsyncInit = function() {
+    // init the FB JS SDK
+    FB.init({
+      appId      : '',
+      status     : true,
+      xfbml      : true
+    });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+</div>
+        <!--End of body content-->
+
+        <footer id="footer">
+            Contents © 2018         <a href="mailto:hanadumal@outlook.com">wangsheng</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
+            
+        </footer>
+</div>
+</div>
+
+
+            <script src="assets/js/jquery.min.js"></script><script src="assets/js/bootstrap.min.js"></script><script src="assets/js/moment-with-locales.min.js"></script><script src="assets/js/fancydates.js"></script><script src="assets/js/jquery.colorbox-min.js"></script><script src="assets/js/colorbox-i18n/jquery.colorbox-zh-CN.js"></script><script>$('a.image-reference:not(.islink) img:not(.islink)').parent().colorbox({rel:"gal",maxWidth:"100%",maxHeight:"100%",scalePhotos:true});</script><!-- fancy dates --><script>
+    moment.locale("zh-cn");
+    fancydates(0, "YYYY-MM-DD HH:mm");
+    </script><!-- end fancy dates -->
+</body>
+</html>

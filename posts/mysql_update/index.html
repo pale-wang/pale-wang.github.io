@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html prefix="og: http://ogp.me/ns# article: http://ogp.me/ns/article# fb: http://ogp.me/ns/fb# " lang="zh_cn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MySQL5.1升级5.5 | WangSheng's Blog</title>
+<link href="../../assets/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/html4css1.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/nikola_rst.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/code.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/colorbox.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/theme.css" rel="stylesheet" type="text/css">
+<meta name="theme-color" content="#5670d4">
+<meta name="generator" content="Nikola (getnikola.com)">
+<link rel="alternate" type="application/rss+xml" title="RSS" href="../../rss.xml">
+<link rel="canonical" href="http://blog.wangsheng.life/posts/mysql_update/">
+<meta property="fb:app_id" content="">
+<!--[if lt IE 9]><script src="../../assets/js/html5.js"></script><![endif]--><meta name="author" content="wangsheng">
+<link rel="prev" href="../django_deploy/" title="Django应用部署" type="text/html">
+<meta property="og:site_name" content="WangSheng's Blog">
+<meta property="og:title" content="MySQL5.1升级5.5">
+<meta property="og:url" content="http://blog.wangsheng.life/posts/mysql_update/">
+<meta property="og:description" content='背景
+在往内网集群部署django应用时
+
+Traceback (most recent call last):
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/utils.py", line 83, in _execute
+    return self.cursor.execute(s'>
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2018-06-14T16:04:00+08:00">
+<meta property="article:tag" content="mysql">
+</head>
+<body>
+<a href="#content" class="sr-only sr-only-focusable">跳到主内容</a>
+
+<!-- Menubar -->
+
+<nav class="navbar navbar-inverse navbar-static-top"><div class="container">
+<!-- This keeps the margins nice -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-navbar" aria-controls="bs-navbar" aria-expanded="false">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="http://blog.wangsheng.life/">
+
+                <span id="blog-title">WangSheng's Blog</span>
+            </a>
+        </div>
+<!-- /.navbar-header -->
+        <div class="collapse navbar-collapse" id="bs-navbar" role="navigation" aria-expanded="false">
+            <ul class="nav navbar-nav">
+<li>
+<a href="../../archive.html">文章存档</a>
+                </li>
+<li>
+<a href="../../categories/">标签</a>
+                </li>
+<li>
+<a href="../../rss.xml">RSS 源</a>
+
+                
+            </li>
+</ul>
+<ul class="nav navbar-nav navbar-right">
+<li>
+    <a href="index.rst" id="sourcelink">源代码</a>
+    </li>
+
+                
+            </ul>
+</div>
+<!-- /.navbar-collapse -->
+    </div>
+<!-- /.container -->
+</nav><!-- End of Menubar --><div class="container" id="content" role="main">
+    <div class="body-content">
+        <!--Body content-->
+        <div class="row">
+            
+            
+<article class="post-text h-entry hentry postpage" itemscope="itemscope" itemtype="http://schema.org/Article"><header><h1 class="p-name entry-title" itemprop="headline name"><a href="." class="u-url">MySQL5.1升级5.5</a></h1>
+
+        <div class="metadata">
+            <p class="byline author vcard"><span class="byline-name fn" itemprop="author">
+                    wangsheng
+            </span></p>
+            <p class="dateline"><a href="." rel="bookmark"><time class="published dt-published" datetime="2018-06-14T16:04:00+08:00" itemprop="datePublished" title="2018-06-14 16:04">2018-06-14 16:04</time></a></p>
+                <p class="commentline">
+        
+<span class="fb-comments-count" data-url="/posts/mysql_update/">
+
+
+            
+        <p class="sourceline"><a href="index.rst" class="sourcelink">源代码</a></p>
+
+        </span></p>
+</div>
+        
+
+    </header><div class="e-content entry-content" itemprop="articleBody text">
+    <div>
+<div class="section" id="id1">
+<h2>背景</h2>
+<p>在往内网集群部署django应用时</p>
+<pre class="literal-block">
+Traceback (most recent call last):
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/utils.py", line 83, in _execute
+    return self.cursor.execute(sql)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/mysql/base.py", line 71, in execute
+    return self.cursor.execute(query, args)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 170, in execute
+    result = self._query(query)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 328, in _query
+    conn.query(q)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 893, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1103, in _read_query_result
+    result.read()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1396, in read
+    first_packet = self.connection._read_packet()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1059, in _read_packet
+    packet.check_error()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 384, in check_error
+    err.raise_mysql_exception(self._data)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+</pre>
+</div>
+<div class="section" id="mysql">
+<h2>MySQL升级路径规划</h2>
+<p>先从MySQL5.1升级到MySQL5.5：</p>
+<ol class="arabic simple">
+<li>主机LOCK, dump出所有数据，并等待从库同步完成</li>
+<li>从库停机</li>
+<li>主库升级</li>
+<li>启动主库</li>
+<li>主库LOCK, dump出所有数据，获取binlog的坐标</li>
+<li>从库部署，并建立与主库的同步</li>
+</ol>
+<div class="section" id="id2">
+<h3>5.1老版本启动</h3>
+<p>查看机器上5.1版本的进程</p>
+<pre class="literal-block">
+/bin/sh ./mysqld_safe --defaults-file=../my.cnf
+/home/iknow/mysql5/libexec/mysqld --defaults-file=../my.cnf --basedir=/home/iknow/mysql5 --datadir=/home/iknow/mysql5/var --log-error=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.err --pid-file=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.pid --socket=/home/iknow/mysql5/tmp/mysql.sock --port=3306
+</pre>
+<p>在执行完mysqld_safe后，这个脚本使用mysqld开启真正的服务器进程，同时添加额外的basedir data-dir log-error pid-file socket port参数</p>
+</div>
+<div class="section" id="id3">
+<h3>导出数据</h3>
+<pre class="literal-block">
+mysql5/bin/mysqldump -uroot -h 127.0.0.1 --add-drop-table --routines --events --all-databases --force &gt; 2018-06-13-uda-all.sql
+</pre>
+</div>
+<div class="section" id="id4">
+<h3>服务器关机</h3>
+<pre class="literal-block">
+mysqladmin -u root -h 127.0.0.1 shutdown
+</pre>
+</div>
+<div class="section" id="mysql5-5">
+<h3>MySQL5.5安装</h3>
+<p>安装MySQL5.5</p>
+</div>
+<div class="section" id="id5">
+<h3>MySQL5.5启动</h3>
+<p>首先，需要初始化data目录</p>
+<pre class="literal-block">
+scripts/mysql_install_db --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data
+</pre>
+<p>接着启动MySQL5.5</p>
+<pre class="literal-block">
+mysqld_safe --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data  --skip-slave-start
+</pre>
+<p>在这个过程中可能会遇到5.5不支持5.1版本option的情况，根据log-error进行修改即可。比如<tt class="docutils literal"><span class="pre">skip-locking</span></tt>在在5.5版本中已经被<tt class="docutils literal"><span class="pre">skip-external-locking</span></tt>替代 <a class="citation-reference" href="#what-is-new-in-mysql5-5" id="id6">[What-is-New-in-MySQL5.5]</a> ，需要进行修改。</p>
+<p>当看到如下提示,就意味着MySQL初始化成功了</p>
+<pre class="literal-block">
+Installing MySQL system tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30065 ...
+OK
+Filling help tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30621 ...
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+./bin/mysqladmin -u root password 'new-password'
+./bin/mysqladmin -u root -h hz01-iknow-udw02.hz01.baidu.com password 'new-password'
+
+Alternatively you can run:
+./bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+cd . ; ./bin/mysqld_safe &amp;
+
+You can test the MySQL daemon with mysql-test-run.pl
+cd ./mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+</pre>
+</div>
+<div class="section" id="lock">
+<h3>LOCK主库</h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="30%">
+<col width="17%">
+<col width="23%">
+<col width="30%">
+</colgroup>
+<tbody valign="top">
+<tr>
+<td>File</td>
+<td>Position</td>
+<td>Binlog_Do_DB</td>
+<td>Binlog_Ignore_DB</td>
+</tr>
+<tr>
+<td>mysql-bin.000006</td>
+<td>85746</td>
+<td> </td>
+<td> </td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id7">
+<h3>从库开启同步</h3>
+<p>使用<tt class="docutils literal">CHANGE MASTER TO</tt>来指定开始主库的坐标信息</p>
+<pre class="literal-block">
+CHANGE MASTER TO
+    MASTER_HOST='hostname',
+    MASTER_USER='username',
+    MASTER_PASSWORD='password',
+    MASTER_PORT=3306,
+    MASTER_LOG_FILE='mysql-bin.000006',
+    MASTER_LOG_POS=85746,
+    MASTER_CONNECT_RETRY=10;
+</pre>
+</div>
+<div class="section" id="id8">
+<h3>5.1升级5.5不支持的参数</h3>
+<p><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html">5.5不支持的master参数</a>包括:</p>
+<ul class="simple">
+<li>--master-host</li>
+<li>--master-user</li>
+<li>--master-password</li>
+<li>--master-port</li>
+<li>--master-connect-retry</li>
+<li>--master-ssl</li>
+<li>--master-ssl-ca</li>
+<li>--master-ssl-capath</li>
+<li>--master-ssl-cert</li>
+<li>--master-ssl-cipher</li>
+<li>--master-ssl-key</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id9">
+<h2>参考资料</h2>
+<table class="docutils citation" frame="void" id="installing-mysql-using-a-standard-source-distribution" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Installing-MySQL-Using-a-Standard-Source-Distribution]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html">https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="mysql-upgrade-strategies" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[MySQL-Upgrade-Strategies]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html">https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="replication-slave-options-and-variables" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Replication-Slave-Options-and-Variables]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html">https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="change-master-to-syntax" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label">[Change-Master-to-Syntax]</td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html">https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html</a></td>
+</tr></tbody>
+</table>
+<table class="docutils citation" frame="void" id="what-is-new-in-mysql5-5" rules="none">
+<colgroup>
+<col class="label">
+<col>
+</colgroup>
+<tbody valign="top"><tr>
+<td class="label"><a class="fn-backref" href="#id6">[What-is-New-in-MySQL5.5]</a></td>
+<td><a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html">https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html</a></td>
+</tr></tbody>
+</table>
+</div>
+</div>
+    </div>
+    <aside class="postpromonav"><nav><ul itemprop="keywords" class="tags">
+<li><a class="tag p-category" href="../../categories/mysql/" rel="tag">mysql</a></li>
+        </ul>
+<ul class="pager hidden-print">
+<li class="previous">
+                <a href="../django_deploy/" rel="prev" title="Django应用部署">前一篇</a>
+            </li>
+        </ul></nav></aside><section class="comments hidden-print"><h2>注释</h2>
+        
+        
+<div id="fb-root"></div>
+<script>
+  window.fbAsyncInit = function() {
+    // init the FB JS SDK
+    FB.init({
+      appId      : '',
+      status     : true,
+      xfbml      : true
+    });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script><div class="fb-comments" data-href="http://blog.wangsheng.life/posts/mysql_update/" data-width="470"></div>
+
+
+        </section></article><div id="fb-root"></div>
+<script>
+    // thank lxml for this
+    $('.fb-comments-count').each(function(i, obj) {
+        var url = obj.attributes['data-url'].value;
+        // change here if you dislike the default way of displaying
+        // this
+        obj.innerHTML = '<fb:comments-count href="' + url + '"></fb:comments-count> comments';
+    });
+
+  window.fbAsyncInit = function() {
+    // init the FB JS SDK
+    FB.init({
+      appId      : '',
+      status     : true,
+      xfbml      : true
+    });
+
+  };
+
+  // Load the SDK asynchronously
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/all.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+</div>
+        <!--End of body content-->
+
+        <footer id="footer">
+            Contents © 2018         <a href="mailto:hanadumal@outlook.com">wangsheng</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         
+            
+        </footer>
+</div>
+</div>
+
+
+            <script src="../../assets/js/jquery.min.js"></script><script src="../../assets/js/bootstrap.min.js"></script><script src="../../assets/js/moment-with-locales.min.js"></script><script src="../../assets/js/fancydates.js"></script><script src="../../assets/js/jquery.colorbox-min.js"></script><script src="../../assets/js/colorbox-i18n/jquery.colorbox-zh-CN.js"></script><script>$('a.image-reference:not(.islink) img:not(.islink)').parent().colorbox({rel:"gal",maxWidth:"100%",maxHeight:"100%",scalePhotos:true});</script><!-- fancy dates --><script>
+    moment.locale("zh-cn");
+    fancydates(0, "YYYY-MM-DD HH:mm");
+    </script><!-- end fancy dates -->
+</body>
+</html>

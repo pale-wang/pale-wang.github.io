@@ -1,0 +1,633 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="assets/xml/rss.xsl" media="all"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>WangSheng's Blog</title><link>http://blog.wangsheng.life/</link><description>This is WangSheng's tech blog.</description><atom:link href="http://blog.wangsheng.life/rss.xml" rel="self" type="application/rss+xml"></atom:link><language>zh_cn</language><copyright>Contents © 2018 &lt;a href="mailto:hanadumal@outlook.com"&gt;wangsheng&lt;/a&gt; </copyright><lastBuildDate>Thu, 21 Jun 2018 06:32:18 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>MySQL5.1升级5.5</title><link>http://blog.wangsheng.life/posts/mysql_update/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;div class="section" id="id1"&gt;
+&lt;h2&gt;背景&lt;/h2&gt;
+&lt;p&gt;在往内网集群部署django应用时&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Traceback (most recent call last):
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/utils.py", line 83, in _execute
+    return self.cursor.execute(sql)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/mysql/base.py", line 71, in execute
+    return self.cursor.execute(query, args)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 170, in execute
+    result = self._query(query)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 328, in _query
+    conn.query(q)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 893, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1103, in _read_query_result
+    result.read()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1396, in read
+    first_packet = self.connection._read_packet()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1059, in _read_packet
+    packet.check_error()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 384, in check_error
+    err.raise_mysql_exception(self._data)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="mysql"&gt;
+&lt;h2&gt;MySQL升级路径规划&lt;/h2&gt;
+&lt;p&gt;先从MySQL5.1升级到MySQL5.5：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;主机LOCK, dump出所有数据，并等待从库同步完成&lt;/li&gt;
+&lt;li&gt;从库停机&lt;/li&gt;
+&lt;li&gt;主库升级&lt;/li&gt;
+&lt;li&gt;启动主库&lt;/li&gt;
+&lt;li&gt;主库LOCK, dump出所有数据，获取binlog的坐标&lt;/li&gt;
+&lt;li&gt;从库部署，并建立与主库的同步&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h3&gt;5.1老版本启动&lt;/h3&gt;
+&lt;p&gt;查看机器上5.1版本的进程&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+/bin/sh ./mysqld_safe --defaults-file=../my.cnf
+/home/iknow/mysql5/libexec/mysqld --defaults-file=../my.cnf --basedir=/home/iknow/mysql5 --datadir=/home/iknow/mysql5/var --log-error=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.err --pid-file=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.pid --socket=/home/iknow/mysql5/tmp/mysql.sock --port=3306
+&lt;/pre&gt;
+&lt;p&gt;在执行完mysqld_safe后，这个脚本使用mysqld开启真正的服务器进程，同时添加额外的basedir data-dir log-error pid-file socket port参数&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h3&gt;导出数据&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+mysql5/bin/mysqldump -uroot -h 127.0.0.1 --add-drop-table --routines --events --all-databases --force &amp;gt; 2018-06-13-uda-all.sql
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id4"&gt;
+&lt;h3&gt;服务器关机&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+mysqladmin -u root -h 127.0.0.1 shutdown
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="mysql5-5"&gt;
+&lt;h3&gt;MySQL5.5安装&lt;/h3&gt;
+&lt;p&gt;安装MySQL5.5&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id5"&gt;
+&lt;h3&gt;MySQL5.5启动&lt;/h3&gt;
+&lt;p&gt;首先，需要初始化data目录&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+scripts/mysql_install_db --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data
+&lt;/pre&gt;
+&lt;p&gt;接着启动MySQL5.5&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+mysqld_safe --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data  --skip-slave-start
+&lt;/pre&gt;
+&lt;p&gt;在这个过程中可能会遇到5.5不支持5.1版本option的情况，根据log-error进行修改即可。比如&lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;skip-locking&lt;/span&gt;&lt;/tt&gt;在在5.5版本中已经被&lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;skip-external-locking&lt;/span&gt;&lt;/tt&gt;替代 &lt;a class="citation-reference" href="http://blog.wangsheng.life/posts/mysql_update/#what-is-new-in-mysql5-5" id="id6"&gt;[What-is-New-in-MySQL5.5]&lt;/a&gt; ，需要进行修改。&lt;/p&gt;
+&lt;p&gt;当看到如下提示,就意味着MySQL初始化成功了&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Installing MySQL system tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30065 ...
+OK
+Filling help tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30621 ...
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+./bin/mysqladmin -u root password 'new-password'
+./bin/mysqladmin -u root -h hz01-iknow-udw02.hz01.baidu.com password 'new-password'
+
+Alternatively you can run:
+./bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+cd . ; ./bin/mysqld_safe &amp;amp;
+
+You can test the MySQL daemon with mysql-test-run.pl
+cd ./mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="lock"&gt;
+&lt;h3&gt;LOCK主库&lt;/h3&gt;
+&lt;table border="1" class="docutils"&gt;
+&lt;colgroup&gt;
+&lt;col width="30%"&gt;
+&lt;col width="17%"&gt;
+&lt;col width="23%"&gt;
+&lt;col width="30%"&gt;
+&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td&gt;File&lt;/td&gt;
+&lt;td&gt;Position&lt;/td&gt;
+&lt;td&gt;Binlog_Do_DB&lt;/td&gt;
+&lt;td&gt;Binlog_Ignore_DB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;mysql-bin.000006&lt;/td&gt;
+&lt;td&gt;85746&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id7"&gt;
+&lt;h3&gt;从库开启同步&lt;/h3&gt;
+&lt;p&gt;使用&lt;tt class="docutils literal"&gt;CHANGE MASTER TO&lt;/tt&gt;来指定开始主库的坐标信息&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+CHANGE MASTER TO
+    MASTER_HOST='hostname',
+    MASTER_USER='username',
+    MASTER_PASSWORD='password',
+    MASTER_PORT=3306,
+    MASTER_LOG_FILE='mysql-bin.000006',
+    MASTER_LOG_POS=85746,
+    MASTER_CONNECT_RETRY=10;
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id8"&gt;
+&lt;h3&gt;5.1升级5.5不支持的参数&lt;/h3&gt;
+&lt;p&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html"&gt;5.5不支持的master参数&lt;/a&gt;包括:&lt;/p&gt;
+&lt;ul class="simple"&gt;
+&lt;li&gt;--master-host&lt;/li&gt;
+&lt;li&gt;--master-user&lt;/li&gt;
+&lt;li&gt;--master-password&lt;/li&gt;
+&lt;li&gt;--master-port&lt;/li&gt;
+&lt;li&gt;--master-connect-retry&lt;/li&gt;
+&lt;li&gt;--master-ssl&lt;/li&gt;
+&lt;li&gt;--master-ssl-ca&lt;/li&gt;
+&lt;li&gt;--master-ssl-capath&lt;/li&gt;
+&lt;li&gt;--master-ssl-cert&lt;/li&gt;
+&lt;li&gt;--master-ssl-cipher&lt;/li&gt;
+&lt;li&gt;--master-ssl-key&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id9"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;table class="docutils citation" frame="void" id="installing-mysql-using-a-standard-source-distribution" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Installing-MySQL-Using-a-Standard-Source-Distribution]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="mysql-upgrade-strategies" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[MySQL-Upgrade-Strategies]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="replication-slave-options-and-variables" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Replication-Slave-Options-and-Variables]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="change-master-to-syntax" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Change-Master-to-Syntax]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="what-is-new-in-mysql5-5" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;&lt;a class="fn-backref" href="http://blog.wangsheng.life/posts/mysql_update/#id6"&gt;[What-is-New-in-MySQL5.5]&lt;/a&gt;&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>mysql</category><guid>http://blog.wangsheng.life/posts/mysql_update/</guid><pubDate>Thu, 14 Jun 2018 08:04:00 GMT</pubDate></item><item><title>Django应用部署</title><link>http://blog.wangsheng.life/posts/django_deploy/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;p&gt;使用django-admin的runserver命令很方便就可以在本地进行web开发和测试。部署则需要额外的一些工作，主要步骤包括：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;服务器python安装&lt;/li&gt;
+&lt;li&gt;使用到的python lib安装&lt;/li&gt;
+&lt;li&gt;前端webserver安装和配置&lt;/li&gt;
+&lt;li&gt;uwsgi配置和安装&lt;/li&gt;
+&lt;li&gt;服务整体连通性测试&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="section" id="python"&gt;
+&lt;h2&gt;服务器python安装&lt;/h2&gt;
+&lt;p&gt;推荐源码包编译，自定义部署路径。原因：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;出于内网环境安全的考虑，一般不会给予用户root权限。&lt;/li&gt;
+&lt;li&gt;方便日后升级等管理工作的进行&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+&lt;div class="section" id="python-lib"&gt;
+&lt;h2&gt;使用到的python lib的安装&lt;/h2&gt;
+&lt;p&gt;如果内网环境有pip源，则使用pip方式。在pip不可用、内网无法访问外网时，考虑使用wheel方式安装。最后考虑使用lib的源码包进行安装。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="webserver"&gt;
+&lt;h2&gt;webserver安装和配置&lt;/h2&gt;
+&lt;p&gt;nginx源码编译。nginx.conf修改，配置static和django用到的location。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="uwsgi"&gt;
+&lt;h2&gt;uwsgi配置和安装&lt;/h2&gt;
+&lt;p&gt;详细步骤参考：&lt;a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/"&gt;How to use Django with uWSGI&lt;/a&gt;&lt;/p&gt;
+&lt;div class="section" id="id1"&gt;
+&lt;h3&gt;uWSGI模型&lt;/h3&gt;
+&lt;p&gt;uWSGI是一个client-server模型。Web Server和django-uwsgi的worker进程交互来提供动态内容。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h3&gt;安装uwsgi&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+$ pip install uwsgi
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h3&gt;uWSGI配置&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+[uwsgi]
+socket = :8001
+chdir = /path/to/uda_ui
+wsgi-file = uda/wsgi.py
+process = 4
+threads = 2
+max-requests = 5000
+pidfile = /path/to/uda_ui/project-master.pid
+daemonize = /path/to/uda_ui/wsgi.log
+buffer-size = 32678
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id4"&gt;
+&lt;h3&gt;启动uwsgi&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+uwsgi --ini uwsgi.ini
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id5"&gt;
+&lt;h2&gt;服务整体连通性测试&lt;/h2&gt;
+&lt;p&gt;在本机进行开发的时候为了便捷，没有考虑使用的组件版本，在利用pip和brew安装的版本跟线上服务器的版本并不一定相同。在进行完上述单机部署的时候，需要对服务器各组件的连通性进行一次整体的排查，保证组件的兼容性。&lt;/p&gt;
+&lt;div class="section" id="bad-case"&gt;
+&lt;h3&gt;bad case&lt;/h3&gt;
+&lt;p&gt;nginx的配置已经完成，打开页面发现easyui-ui控件没有数据。在wsgi.log中发现&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+django.db.utils.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+[pid: 33013|app: 0|req: 2/2] 172.24.191.3 () {50 vars in 2300 bytes} [Tue Jun 12 20:26:07 2018] POST /metadata/metatables =&amp;gt; generated 23210 bytes in 519 msecs (HTTP/1.1 500) 4 headers in 145 bytes (1 switches on core 1)
+&lt;/pre&gt;
+&lt;p&gt;google之，百思不得其解。查看pymysql的版本发现是&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+&amp;gt;&amp;gt;&amp;gt; pymysql.__version__
+'0.8.1'
+&lt;/pre&gt;
+&lt;p&gt;初步怀疑是'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED'这条命令没办法在线上的MySQL执行，进行验证&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+mysql&amp;gt; SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED;
+Query OK, 0 rows affected (0.00 sec)
+&lt;/pre&gt;
+&lt;p&gt;是不是pymysql的问题？打开&lt;a class="reference external" href="https://github.com/PyMySQL/PyMySQL"&gt;PyMySQL GitHub&lt;/a&gt;查看安装条件&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Requirements
+
+Python -- one of the following:
+    CPython : 2.7 and &amp;gt;= 3.4
+    PyPy : Latest version
+MySQL Server -- one of the following:
+    MySQL &amp;gt;= 5.5
+    MariaDB &amp;gt;= 5.5
+&lt;/pre&gt;
+&lt;p&gt;看来需要将MySQL5.1升级MySQL5.5了。&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id6"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;table class="docutils citation" frame="void" id="pymysql-github" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[PyMySQL-GITHUB]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://github.com/PyMySQL/PyMySQL"&gt;https://github.com/PyMySQL/PyMySQL&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="how-to-use-django-with-wwsgi" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[How-to-use-Django-with-wWSGI]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/"&gt;https://docs.djangoproject.com/en/2.0/howto/deployment/wsgi/uwsgi/&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>django</category><guid>http://blog.wangsheng.life/posts/django_deploy/</guid><pubDate>Wed, 13 Jun 2018 06:37:00 GMT</pubDate></item><item><title>restructText 语法</title><link>http://blog.wangsheng.life/posts/restructtext_grammer/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;div class="section" id="restructtext"&gt;
+&lt;h2&gt;restructText语法基础&lt;/h2&gt;
+&lt;div class="section" id="source-code"&gt;
+&lt;h3&gt;源代码块Source Code&lt;/h3&gt;
+&lt;p&gt;代码文本块由特殊标记 ::的段落引发。整个代码块必须具有相同的缩进&lt;/p&gt;
+&lt;p&gt;::是智能处理的&lt;/p&gt;
+&lt;ul class="simple"&gt;
+&lt;li&gt;如果它紧在文本后出现，则被替换成:&lt;/li&gt;
+&lt;li&gt;如果它前面有空格，则不会显示&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;div class="section" id="citations"&gt;
+&lt;h3&gt;引用 Citations&lt;/h3&gt;
+&lt;p&gt;例如在文章的末尾定义了参考资料的外部链接，在内部只需要使用&lt;tt class="docutils literal"&gt;[Ref]_&lt;/tt&gt;就可以引用其中的资料&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="inline-markup"&gt;
+&lt;h3&gt;内联标签 Inline Markup&lt;/h3&gt;
+&lt;table border="1" class="docutils"&gt;
+&lt;colgroup&gt;
+&lt;col width="32%"&gt;
+&lt;col width="31%"&gt;
+&lt;col width="36%"&gt;
+&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td&gt;*emphasis*&lt;/td&gt;
+&lt;td&gt;斜体&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;**strong emphasis**&lt;/td&gt;
+&lt;td&gt;加粗&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;``inline literal``&lt;/td&gt;
+&lt;td&gt;内联&lt;/td&gt;
+&lt;td&gt;等宽字体，保留空格，但是不保留换行&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;reference_&lt;/td&gt;
+&lt;td&gt;引用&lt;/td&gt;
+&lt;td&gt;简单的，单个单词的引用&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;`phrase reference`_&lt;/td&gt;
+&lt;td&gt;phrase reference&lt;/td&gt;
+&lt;td&gt;复杂的，包含空格或者标点的引用&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;anonymous__&lt;/td&gt;
+&lt;td&gt;anonymous&lt;/td&gt;
+&lt;td&gt;两个下划线，简单和复杂的引用都可以&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;_`inline internal target`&lt;/td&gt;
+&lt;td&gt;inline internal target&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;|substitution reference|&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;footnote reference [1]_&lt;/td&gt;
+&lt;td&gt;footnote refenence &lt;a class="footnote-reference" href="http://blog.wangsheng.life/posts/restructtext_grammer/#id8" id="id1"&gt;[1]&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;citation reference [CIT2002]_&lt;/td&gt;
+&lt;td&gt;citation reference &lt;a class="citation-reference" href="http://blog.wangsheng.life/posts/restructtext_grammer/#cit2002" id="id2"&gt;[CIT2002]&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;http://docutils.sf.net/&lt;/td&gt;
+&lt;td&gt;&lt;a class="reference external" href="http://docutils.sf.net/"&gt;http://docutils.sf.net/&lt;/a&gt;&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="hyperlink-targets"&gt;
+&lt;h3&gt;超链接 HyperLink Targets&lt;/h3&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h4&gt;外部链接&lt;/h4&gt;
+&lt;p&gt;External hyperlinks, like &lt;a class="reference external" href="http://www.python.org/"&gt;Python&lt;/a&gt;.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id4"&gt;
+&lt;h4&gt;内部链接&lt;/h4&gt;
+&lt;p&gt;Internal crossreferences, like &lt;a class="reference internal" href="http://blog.wangsheng.life/posts/restructtext_grammer/#example"&gt;example&lt;/a&gt;.&lt;/p&gt;
+&lt;p id="example"&gt;This is an example crossreference target.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id5"&gt;
+&lt;h3&gt;间接超链接&lt;/h3&gt;
+&lt;p&gt;&lt;a class="reference external" href="http://www.python.org/"&gt;Python&lt;/a&gt; is &lt;a class="reference external" href="http://www.python.org/"&gt;my favourite programming language&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;__ Python_&lt;/p&gt;
+&lt;div class="section" id="id7"&gt;
+&lt;h4&gt;隐式超链接&lt;/h4&gt;
+&lt;p&gt;标题，脚注，引文都会自动生成超链接目标。
+标题也是超链接，比如&lt;a class="reference internal" href="http://blog.wangsheng.life/posts/restructtext_grammer/#id7"&gt;隐式超链接&lt;/a&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="footnotes"&gt;
+&lt;h3&gt;脚注 Footnotes&lt;/h3&gt;
+&lt;p&gt;Footnote references, like [5]_.&lt;/p&gt;
+&lt;table class="docutils footnote" frame="void" id="id8" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;&lt;a class="fn-backref" href="http://blog.wangsheng.life/posts/restructtext_grammer/#id1"&gt;[1]&lt;/a&gt;&lt;/td&gt;&lt;td&gt;First footnote.&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils footnote" frame="void" id="id9" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[5]&lt;/td&gt;&lt;td&gt;A numerical footnote.&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="citation"&gt;
+&lt;h3&gt;引文 Citation&lt;/h3&gt;
+&lt;p&gt;Citation reference, like [CIT2002]_.&lt;/p&gt;
+&lt;table class="docutils citation" frame="void" id="cit2002" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;&lt;a class="fn-backref" href="http://blog.wangsheng.life/posts/restructtext_grammer/#id2"&gt;[CIT2002]&lt;/a&gt;&lt;/td&gt;&lt;td&gt;A citation&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="escaping"&gt;
+&lt;h3&gt;转义 Escaping&lt;/h3&gt;
+&lt;p&gt;reStructuredText使用("")作为转义元字符。转义时只需要在最左边的inline markup添加。&lt;/p&gt;
+&lt;table border="1" class="docutils"&gt;
+&lt;colgroup&gt;
+&lt;col width="52%"&gt;
+&lt;col width="48%"&gt;
+&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td&gt;Raw reStructuredText&lt;/td&gt;
+&lt;td&gt;Typical result&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;*escape* ``with`` "\"&lt;/td&gt;
+&lt;td&gt;eacape with ""&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;\*escape* \``with`` "\\"&lt;/td&gt;
+&lt;td&gt;*escape* ``with`` "\"&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="section-structure"&gt;
+&lt;h3&gt;区域结构 Section Structure&lt;/h3&gt;
+&lt;p&gt;标题用下划线标识（也可以用上划线+下划线).划线的字符是非字符数字的7位ASCII码。
+推荐的选择有"= - ` : ' " ~ ^ _ * + # &amp;lt; &amp;gt;"&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="paragraphs"&gt;
+&lt;h3&gt;段落 Paragraphs&lt;/h3&gt;
+&lt;p&gt;段落靠在最左边。段落和段落之间用空行分隔。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="tables"&gt;
+&lt;h3&gt;表格Tables&lt;/h3&gt;
+&lt;p&gt;表格的语法非常简明&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
++------------------------+------------+----------+----------+
+| Header row, column 1   | Header 2   | Header 3 | Header 4 |
+| (header rows optional) |            |          |          |
++========================+============+==========+==========+
+| body row 1, column 1   | column 2   | column 3 | column 4 |
++------------------------+------------+----------+----------+
+| body row 2             | ...        | ...      |          |
++------------------------+------------+----------+----------+
+&lt;/pre&gt;
+&lt;p&gt;它的效果如下：&lt;/p&gt;
+&lt;table border="1" class="docutils"&gt;
+&lt;colgroup&gt;
+&lt;col width="43%"&gt;
+&lt;col width="21%"&gt;
+&lt;col width="18%"&gt;
+&lt;col width="18%"&gt;
+&lt;/colgroup&gt;
+&lt;thead valign="bottom"&gt;
+&lt;tr&gt;&lt;th class="head"&gt;Header row, column 1
+(header rows optional)&lt;/th&gt;
+&lt;th class="head"&gt;Header 2&lt;/th&gt;
+&lt;th class="head"&gt;Header 3&lt;/th&gt;
+&lt;th class="head"&gt;Header 4&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td&gt;body row 1, column 1&lt;/td&gt;
+&lt;td&gt;column 2&lt;/td&gt;
+&lt;td&gt;column 3&lt;/td&gt;
+&lt;td&gt;column 4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;body row 2&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt;...&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;这也就意味着，从MySQL console中复制出来的数据，可以无缝的转变成文档中的table&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id10"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;table class="docutils citation" frame="void" id="quick-restructuredtext" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Quick-reStructuredText]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="http://docutils.sourceforge.net/docs/user/rst/quickref.html"&gt;http://docutils.sourceforge.net/docs/user/rst/quickref.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="sphinx-1-3-1-document" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Sphinx-1.3.1-document]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="http://sphinx-doc-zh.readthedocs.io/en/latest/rest.html#citations"&gt;http://sphinx-doc-zh.readthedocs.io/en/latest/rest.html#citations&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="docutils" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[docutils]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="http://docutils-zh-cn.readthedocs.io/zh_CN/latest/ref/rst/restructuredtext.html#rst-citations"&gt;http://docutils-zh-cn.readthedocs.io/zh_CN/latest/ref/rst/restructuredtext.html#rst-citations&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="sphinx-doc" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[sphinx-doc]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html"&gt;http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>restructText</category><guid>http://blog.wangsheng.life/posts/restructtext_grammer/</guid><pubDate>Tue, 12 Jun 2018 16:00:00 GMT</pubDate></item><item><title>Python 3 subprocess 新高层API</title><link>http://blog.wangsheng.life/posts/python_subprocess/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;p&gt;subprocess模块用来创建新的进程，连接到它的标准输入/标准输出/错误输出。&lt;/p&gt;
+&lt;div class="section" id="id1"&gt;
+&lt;h2&gt;使用subprocess&lt;/h2&gt;
+&lt;p&gt;标准库官方文档的推荐使用run()来处理它能应对的所有功能。当需要更高级的功能的时候，直接使用底层的Popen接口。run()是3.5加入的，如果为了保持兼容性还是可以继续使用老的高层API.&lt;/p&gt;
+&lt;p&gt;subprocess.run(args, *, stdin=None, input=None, stdout=None, stdin=None, shell=False, cwd=None, timeout=None,
+check=False, encoding=None, errors=None, env=None)&lt;/p&gt;
+&lt;p&gt;run函数执行args描述的命令，等待子进程完成，返回一个CompletedProcess实例。&lt;/p&gt;
+&lt;p&gt;完整的参数列表与Popen基本一致，除了timeout, input 和 check, 其他所有的参数都被传递给Popen&lt;/p&gt;
+&lt;p&gt;默认不捕获stdout和stderr，如果想要捕获，需要传递为stdout/stderr传递PIPE参数。&lt;/p&gt;
+&lt;p&gt;timeout参数将传递给Popen.communicate().如果超时了，子进程将会被杀死，父进程等在子进程死亡，并且在之后抛出TimeoutExpired&lt;/p&gt;
+&lt;p&gt;input参数也传递给Popen.communicate(), 也就是子进程的stdin. input必须是byte序列，在制定了encoding或者errors或者universal_newlines 是true的情况下，可以是字符串。在使用的时候，内部的Popen对象已经自动使用stdin=PIPE创建，因此stdin=PIPE可以不需要。&lt;/p&gt;
+&lt;p&gt;如果check is true, 子进程退出的返回值是非0，那么会抛出CalledProcessError 异常。异常的数值中包含有参数，退出值，stdin stdout的值。&lt;/p&gt;
+&lt;p&gt;如果声明了encoding或errors或universal_newlines is true,;stdin, stdout, stderr使用特定的encoding和error的text模式打开。其他情况下使用二进制模式打开。&lt;/p&gt;
+&lt;p&gt;如果env不是None, 那它必须是定义环境变量的一个映射。这些环境变量被传递给子进程，而不是继承父进程的环境变量。&lt;/p&gt;
+&lt;p&gt;3.5 新引入的
+3.6 添加了encoding和errors的支持&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;class&lt;/em&gt; subprocess.**CompletedProcess**&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;run()函数的返回值，代表一个已经结束执行的进程。&lt;/p&gt;
+&lt;dl class="docutils"&gt;
+&lt;dt&gt;&lt;strong&gt;args&lt;/strong&gt;&lt;/dt&gt;
+&lt;dd&gt;创建进程传递进来的参数。必须是一个list或者string&lt;/dd&gt;
+&lt;dt&gt;&lt;strong&gt;returncode&lt;/strong&gt;&lt;/dt&gt;
+&lt;dd&gt;进程的返回值。通常0代表正常退出。在POSIX下，负数返回值-N,代表进程因signal N结束。&lt;/dd&gt;
+&lt;dt&gt;&lt;strong&gt;stdout&lt;/strong&gt;&lt;/dt&gt;
+&lt;dd&gt;&lt;p class="first"&gt;捕获子进程的标准输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.&lt;/p&gt;
+&lt;p class="last"&gt;如果run()的时候stderr=subprocess.STDOUT,那么子进程的标准错误输出会重定向到标准输出。stderr将会是None.&lt;/p&gt;
+&lt;/dd&gt;
+&lt;dt&gt;&lt;strong&gt;stderr&lt;/strong&gt;&lt;/dt&gt;
+&lt;dd&gt;捕获子进程的标准错误输出。是一个byte sequence,如果run()执行时指定了encoding或者error, 返回string. 没有捕获到返回None.&lt;/dd&gt;
+&lt;dt&gt;&lt;strong&gt;check_returncode()&lt;/strong&gt;&lt;/dt&gt;
+&lt;dd&gt;如果returncode不是0，抛出CalledProcessError&lt;/dd&gt;
+&lt;/dl&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;em&gt;exception&lt;/em&gt; subprocess.&lt;strong&gt;SubprocessError&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;subprocess模块所有异常的基类&lt;/p&gt;
+&lt;p&gt;3.3 新引入的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;em&gt;exception&lt;/em&gt; subprocess.&lt;strong&gt;TimeoutExpired&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+SubprocessError的子类。代表子进程超时错误。&lt;/blockquote&gt;
+&lt;p&gt;&lt;em&gt;exception&lt;/em&gt; subprocess.&lt;strong&gt;CalledProcessError&lt;/strong&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;cmd&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;timeout&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;output&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;stdout&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;stderr&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;3.5 新增stdout stderr属性&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;SubprocessError的子类，check_call()或check_output()的返回值非0时抛出该异常。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;strong&gt;returncode&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;cmd&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;output&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;stdout&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;stderr&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;3.5 新引入的&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class="section" id="api"&gt;
+&lt;h2&gt;替代老的高层API&lt;/h2&gt;
+&lt;p&gt;Python 3.5前的高层API由三个函数组成。虽然可以使用run()取代它们，但是很多老代码仍然使用这三个函数。&lt;/p&gt;
+&lt;p&gt;subprocess.&lt;strong&gt;call&lt;/strong&gt;(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)&lt;/p&gt;
+&lt;blockquote&gt;
+等同于
+run(...).returncode&lt;/blockquote&gt;
+&lt;p&gt;subprocess.&lt;strong&gt;check_call&lt;/strong&gt;(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, timeout=None)&lt;/p&gt;
+&lt;blockquote&gt;
+等同于
+run(..., check=True)&lt;/blockquote&gt;
+&lt;p&gt;subprocess.&lt;strong&gt;check_output&lt;/strong&gt;(args, *, stdin=None, stdout=None, stderr=None, shell=False, cwd=None, encoding=None, errors=None, universal_newlines=False, timeout=None)&lt;/p&gt;
+&lt;blockquote&gt;
+等同于
+run(..., check=True, stdout=PIPE).stdout&lt;/blockquote&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h2&gt;我的意见&lt;/h2&gt;
+&lt;p&gt;暂时不会对老代码中的subprocess往新的API迁移，就方便记忆这点来说老API更容易使用。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;p&gt;Python3标准库subprocess: &lt;a class="reference external" href="https://docs.python.org/3/library/subprocess.html"&gt;https://docs.python.org/3/library/subprocess.html&lt;/a&gt;&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;</description><guid>http://blog.wangsheng.life/posts/python_subprocess/</guid><pubDate>Fri, 08 Jun 2018 16:00:00 GMT</pubDate></item><item><title>开始使用wheel</title><link>http://blog.wangsheng.life/posts/python_wheel/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;div class="section" id="id1"&gt;
+&lt;h2&gt;wheels是什么&lt;/h2&gt;
+&lt;p&gt;造轮子这个词应该都不会陌生，wheels可以理解为python提供给用户的轮子。轮子多、易用也成就了是python受欢迎现状。&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="wheelspython"&gt;
+&lt;h2&gt;wheels是新的python分发标准&lt;/h2&gt;
+&lt;p&gt;一个个轮子虽然有了，但是要怎么才能拿过来用是另外一件事情。此前Python包的分发是混乱的，有了wheel之后这种现象正逐步得到改观。从 &lt;a class="reference external" href="https://pythonwheels.com/"&gt;pythonwheels&lt;/a&gt; 的数据中可以看到，截止[2018/06/03]pypi上下载量前360名的包已经有263个支持wheel工具,也就是说73.06%的包已经wheel。现在是时候使用wheel来武装自己了！&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="wheel"&gt;
+&lt;h2&gt;wheel的使用前提&lt;/h2&gt;
+&lt;pre class="literal-block"&gt;
+pip &amp;gt;= 1.4
+setuptools &amp;gt;= 0.8
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h2&gt;延伸&lt;/h2&gt;
+&lt;p&gt;从pythonwheels上抓取前360位的包名称。&lt;/p&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>python</category><guid>http://blog.wangsheng.life/posts/python_wheel/</guid><pubDate>Sat, 02 Jun 2018 16:00:00 GMT</pubDate></item></channel></rss>

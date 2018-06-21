@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="../assets/xml/rss.xsl" media="all"?><rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>WangSheng's Blog (文章分类：mysql)</title><link>http://blog.wangsheng.life/</link><description></description><atom:link href="http://blog.wangsheng.life/categories/mysql.xml" rel="self" type="application/rss+xml"></atom:link><language>zh_cn</language><copyright>Contents © 2018 &lt;a href="mailto:hanadumal@outlook.com"&gt;wangsheng&lt;/a&gt; </copyright><lastBuildDate>Thu, 21 Jun 2018 06:32:18 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>MySQL5.1升级5.5</title><link>http://blog.wangsheng.life/posts/mysql_update/</link><dc:creator>wangsheng</dc:creator><description>&lt;div&gt;&lt;div class="section" id="id1"&gt;
+&lt;h2&gt;背景&lt;/h2&gt;
+&lt;p&gt;在往内网集群部署django应用时&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Traceback (most recent call last):
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/utils.py", line 83, in _execute
+    return self.cursor.execute(sql)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/django/db/backends/mysql/base.py", line 71, in execute
+    return self.cursor.execute(query, args)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 170, in execute
+    result = self._query(query)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/cursors.py", line 328, in _query
+    conn.query(q)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 893, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1103, in _read_query_result
+    result.read()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1396, in read
+    first_packet = self.connection._read_packet()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 1059, in _read_packet
+    packet.check_error()
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/connections.py", line 384, in check_error
+    err.raise_mysql_exception(self._data)
+  File "/home/iknow/Python3.6.2/lib/python3.6/site-packages/pymysql/err.py", line 109, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.ProgrammingError: (1064, "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' at line 1")
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="mysql"&gt;
+&lt;h2&gt;MySQL升级路径规划&lt;/h2&gt;
+&lt;p&gt;先从MySQL5.1升级到MySQL5.5：&lt;/p&gt;
+&lt;ol class="arabic simple"&gt;
+&lt;li&gt;主机LOCK, dump出所有数据，并等待从库同步完成&lt;/li&gt;
+&lt;li&gt;从库停机&lt;/li&gt;
+&lt;li&gt;主库升级&lt;/li&gt;
+&lt;li&gt;启动主库&lt;/li&gt;
+&lt;li&gt;主库LOCK, dump出所有数据，获取binlog的坐标&lt;/li&gt;
+&lt;li&gt;从库部署，并建立与主库的同步&lt;/li&gt;
+&lt;/ol&gt;
+&lt;div class="section" id="id2"&gt;
+&lt;h3&gt;5.1老版本启动&lt;/h3&gt;
+&lt;p&gt;查看机器上5.1版本的进程&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+/bin/sh ./mysqld_safe --defaults-file=../my.cnf
+/home/iknow/mysql5/libexec/mysqld --defaults-file=../my.cnf --basedir=/home/iknow/mysql5 --datadir=/home/iknow/mysql5/var --log-error=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.err --pid-file=/home/iknow/mysql5/var/hz01-iknow-udw02.hz01.baidu.com.pid --socket=/home/iknow/mysql5/tmp/mysql.sock --port=3306
+&lt;/pre&gt;
+&lt;p&gt;在执行完mysqld_safe后，这个脚本使用mysqld开启真正的服务器进程，同时添加额外的basedir data-dir log-error pid-file socket port参数&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id3"&gt;
+&lt;h3&gt;导出数据&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+mysql5/bin/mysqldump -uroot -h 127.0.0.1 --add-drop-table --routines --events --all-databases --force &amp;gt; 2018-06-13-uda-all.sql
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id4"&gt;
+&lt;h3&gt;服务器关机&lt;/h3&gt;
+&lt;pre class="literal-block"&gt;
+mysqladmin -u root -h 127.0.0.1 shutdown
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="mysql5-5"&gt;
+&lt;h3&gt;MySQL5.5安装&lt;/h3&gt;
+&lt;p&gt;安装MySQL5.5&lt;/p&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id5"&gt;
+&lt;h3&gt;MySQL5.5启动&lt;/h3&gt;
+&lt;p&gt;首先，需要初始化data目录&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+scripts/mysql_install_db --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data
+&lt;/pre&gt;
+&lt;p&gt;接着启动MySQL5.5&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+mysqld_safe --defaults-file=./slave.cnf --user=iknow --datadir=/home/iknow/mysql5.5.60/data  --skip-slave-start
+&lt;/pre&gt;
+&lt;p&gt;在这个过程中可能会遇到5.5不支持5.1版本option的情况，根据log-error进行修改即可。比如&lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;skip-locking&lt;/span&gt;&lt;/tt&gt;在在5.5版本中已经被&lt;tt class="docutils literal"&gt;&lt;span class="pre"&gt;skip-external-locking&lt;/span&gt;&lt;/tt&gt;替代 &lt;a class="citation-reference" href="http://blog.wangsheng.life/posts/mysql_update/#what-is-new-in-mysql5-5" id="id6"&gt;[What-is-New-in-MySQL5.5]&lt;/a&gt; ，需要进行修改。&lt;/p&gt;
+&lt;p&gt;当看到如下提示,就意味着MySQL初始化成功了&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+Installing MySQL system tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30065 ...
+OK
+Filling help tables...
+180613 21:43:05 [Note] Ignoring --secure-file-priv value as server is running with --bootstrap.
+180613 21:43:05 [Note] ./bin/mysqld (mysqld 5.5.60) starting as process 30621 ...
+OK
+
+To start mysqld at boot time you have to copy
+support-files/mysql.server to the right place for your system
+
+PLEASE REMEMBER TO SET A PASSWORD FOR THE MySQL root USER !
+To do so, start the server, then issue the following commands:
+
+./bin/mysqladmin -u root password 'new-password'
+./bin/mysqladmin -u root -h hz01-iknow-udw02.hz01.baidu.com password 'new-password'
+
+Alternatively you can run:
+./bin/mysql_secure_installation
+
+which will also give you the option of removing the test
+databases and anonymous user created by default.  This is
+strongly recommended for production servers.
+
+See the manual for more instructions.
+
+You can start the MySQL daemon with:
+cd . ; ./bin/mysqld_safe &amp;amp;
+
+You can test the MySQL daemon with mysql-test-run.pl
+cd ./mysql-test ; perl mysql-test-run.pl
+
+Please report any problems at http://bugs.mysql.com/
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="lock"&gt;
+&lt;h3&gt;LOCK主库&lt;/h3&gt;
+&lt;table border="1" class="docutils"&gt;
+&lt;colgroup&gt;
+&lt;col width="30%"&gt;
+&lt;col width="17%"&gt;
+&lt;col width="23%"&gt;
+&lt;col width="30%"&gt;
+&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td&gt;File&lt;/td&gt;
+&lt;td&gt;Position&lt;/td&gt;
+&lt;td&gt;Binlog_Do_DB&lt;/td&gt;
+&lt;td&gt;Binlog_Ignore_DB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;mysql-bin.000006&lt;/td&gt;
+&lt;td&gt;85746&lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;td&gt; &lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id7"&gt;
+&lt;h3&gt;从库开启同步&lt;/h3&gt;
+&lt;p&gt;使用&lt;tt class="docutils literal"&gt;CHANGE MASTER TO&lt;/tt&gt;来指定开始主库的坐标信息&lt;/p&gt;
+&lt;pre class="literal-block"&gt;
+CHANGE MASTER TO
+    MASTER_HOST='hostname',
+    MASTER_USER='username',
+    MASTER_PASSWORD='password',
+    MASTER_PORT=3306,
+    MASTER_LOG_FILE='mysql-bin.000006',
+    MASTER_LOG_POS=85746,
+    MASTER_CONNECT_RETRY=10;
+&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id8"&gt;
+&lt;h3&gt;5.1升级5.5不支持的参数&lt;/h3&gt;
+&lt;p&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html"&gt;5.5不支持的master参数&lt;/a&gt;包括:&lt;/p&gt;
+&lt;ul class="simple"&gt;
+&lt;li&gt;--master-host&lt;/li&gt;
+&lt;li&gt;--master-user&lt;/li&gt;
+&lt;li&gt;--master-password&lt;/li&gt;
+&lt;li&gt;--master-port&lt;/li&gt;
+&lt;li&gt;--master-connect-retry&lt;/li&gt;
+&lt;li&gt;--master-ssl&lt;/li&gt;
+&lt;li&gt;--master-ssl-ca&lt;/li&gt;
+&lt;li&gt;--master-ssl-capath&lt;/li&gt;
+&lt;li&gt;--master-ssl-cert&lt;/li&gt;
+&lt;li&gt;--master-ssl-cipher&lt;/li&gt;
+&lt;li&gt;--master-ssl-key&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div class="section" id="id9"&gt;
+&lt;h2&gt;参考资料&lt;/h2&gt;
+&lt;table class="docutils citation" frame="void" id="installing-mysql-using-a-standard-source-distribution" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Installing-MySQL-Using-a-Standard-Source-Distribution]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/installing-source-distribution.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="mysql-upgrade-strategies" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[MySQL-Upgrade-Strategies]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/upgrading-strategies.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="replication-slave-options-and-variables" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Replication-Slave-Options-and-Variables]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/replication-options-slave.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="change-master-to-syntax" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;[Change-Master-to-Syntax]&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/change-master-to.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;table class="docutils citation" frame="void" id="what-is-new-in-mysql5-5" rules="none"&gt;
+&lt;colgroup&gt;&lt;col class="label"&gt;&lt;col&gt;&lt;/colgroup&gt;
+&lt;tbody valign="top"&gt;
+&lt;tr&gt;&lt;td class="label"&gt;&lt;a class="fn-backref" href="http://blog.wangsheng.life/posts/mysql_update/#id6"&gt;[What-is-New-in-MySQL5.5]&lt;/a&gt;&lt;/td&gt;&lt;td&gt;&lt;a class="reference external" href="https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html"&gt;https://dev.mysql.com/doc/refman/5.5/en/mysql-nutshell.html&lt;/a&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/div&gt;&lt;/div&gt;</description><category>mysql</category><guid>http://blog.wangsheng.life/posts/mysql_update/</guid><pubDate>Thu, 14 Jun 2018 08:04:00 GMT</pubDate></item></channel></rss>
